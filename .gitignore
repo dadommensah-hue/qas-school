@@ -1,0 +1,4 @@
+node_modules/
+.env
+qas_school.db
+uploads/
