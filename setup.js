@@ -13,7 +13,7 @@ const TERMS = ['Term 1', 'Term 2', 'Term 3'];
 async function setupDatabase() {
   await getDB();
 
-  run(`CREATE TABLE IF NOT EXISTS users (
+  await run(`CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
@@ -25,7 +25,7 @@ async function setupDatabase() {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
 
-  run(`CREATE TABLE IF NOT EXISTS students (
+  await run(`CREATE TABLE IF NOT EXISTS students (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     student_id TEXT UNIQUE NOT NULL,
     full_name TEXT NOT NULL,
@@ -45,7 +45,7 @@ async function setupDatabase() {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
 
-  run(`CREATE TABLE IF NOT EXISTS teachers (
+  await run(`CREATE TABLE IF NOT EXISTS teachers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     teacher_id TEXT UNIQUE NOT NULL,
     full_name TEXT NOT NULL,
@@ -61,7 +61,7 @@ async function setupDatabase() {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
 
-  run(`CREATE TABLE IF NOT EXISTS teacher_subjects (
+  await run(`CREATE TABLE IF NOT EXISTS teacher_subjects (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     teacher_id INTEGER NOT NULL,
     subject TEXT NOT NULL,
@@ -69,7 +69,7 @@ async function setupDatabase() {
     FOREIGN KEY(teacher_id) REFERENCES teachers(id)
   )`);
 
-  run(`CREATE TABLE IF NOT EXISTS teacher_class_assignments (
+  await run(`CREATE TABLE IF NOT EXISTS teacher_class_assignments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     teacher_id INTEGER NOT NULL,
     assigned_class TEXT NOT NULL,
@@ -77,7 +77,7 @@ async function setupDatabase() {
     FOREIGN KEY(teacher_id) REFERENCES teachers(id)
   )`);
 
-  run(`CREATE TABLE IF NOT EXISTS attendance (
+  await run(`CREATE TABLE IF NOT EXISTS attendance (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     student_id INTEGER NOT NULL,
     class TEXT NOT NULL,
@@ -89,7 +89,7 @@ async function setupDatabase() {
     FOREIGN KEY(student_id) REFERENCES students(id)
   )`);
 
-  run(`CREATE TABLE IF NOT EXISTS grades (
+  await run(`CREATE TABLE IF NOT EXISTS grades (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     student_id INTEGER NOT NULL,
     subject TEXT NOT NULL,
@@ -98,7 +98,7 @@ async function setupDatabase() {
     academic_year TEXT DEFAULT '2024/2025',
     class_score REAL DEFAULT 0,
     exam_score REAL DEFAULT 0,
-    total_score REAL GENERATED ALWAYS AS (class_score + exam_score) STORED,
+    total_score REAL DEFAULT 0,
     grade TEXT,
     remarks TEXT,
     recorded_by INTEGER,
@@ -106,8 +106,7 @@ async function setupDatabase() {
     FOREIGN KEY(student_id) REFERENCES students(id)
   )`);
 
-
-  run(`CREATE TABLE IF NOT EXISTS grade_history (
+  await run(`CREATE TABLE IF NOT EXISTS grade_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     student_id INTEGER NOT NULL,
     subject TEXT NOT NULL,
@@ -124,7 +123,7 @@ async function setupDatabase() {
     FOREIGN KEY(student_id) REFERENCES students(id)
   )`);
 
-  run(`CREATE TABLE IF NOT EXISTS mock_exam (
+  await run(`CREATE TABLE IF NOT EXISTS mock_exam (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     student_id INTEGER NOT NULL,
     subject TEXT NOT NULL,
@@ -138,8 +137,7 @@ async function setupDatabase() {
     FOREIGN KEY(student_id) REFERENCES students(id)
   )`);
 
-
-  run(`CREATE TABLE IF NOT EXISTS midterm_grades (
+  await run(`CREATE TABLE IF NOT EXISTS midterm_grades (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     student_id INTEGER NOT NULL,
     subject TEXT NOT NULL,
@@ -154,7 +152,7 @@ async function setupDatabase() {
     FOREIGN KEY(student_id) REFERENCES students(id)
   )`);
 
-  run(`CREATE TABLE IF NOT EXISTS report_conduct (
+  await run(`CREATE TABLE IF NOT EXISTS report_conduct (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     student_id INTEGER NOT NULL,
     term TEXT NOT NULL,
@@ -171,16 +169,8 @@ async function setupDatabase() {
     UNIQUE(student_id, term, academic_year, exam_type),
     FOREIGN KEY(student_id) REFERENCES students(id)
   )`);
-  // Ensure next_term_begins column exists on existing databases
-  try {
-    const rcCols = query("PRAGMA table_info(report_conduct)");
-    if (!rcCols.some(c => c.name === 'next_term_begins')) {
-      run("ALTER TABLE report_conduct ADD COLUMN next_term_begins TEXT DEFAULT ''");
-      console.log('[Setup] Added next_term_begins column to report_conduct');
-    }
-  } catch(e) { console.log('[Setup] next_term_begins check:', e.message); }
 
-  run(`CREATE TABLE IF NOT EXISTS approved_terms (
+  await run(`CREATE TABLE IF NOT EXISTS approved_terms (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     class TEXT NOT NULL,
     term TEXT NOT NULL,
@@ -191,7 +181,7 @@ async function setupDatabase() {
     UNIQUE(class, term, academic_year, exam_type)
   )`);
 
-  run(`CREATE TABLE IF NOT EXISTS syllabus (
+  await run(`CREATE TABLE IF NOT EXISTS syllabus (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
     subject TEXT,
@@ -206,13 +196,13 @@ async function setupDatabase() {
     FOREIGN KEY(uploaded_by) REFERENCES users(id)
   )`);
 
-  run(`CREATE TABLE IF NOT EXISTS fees (
+  await run(`CREATE TABLE IF NOT EXISTS fees (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     student_id INTEGER NOT NULL,
     fee_type TEXT NOT NULL,
     amount REAL NOT NULL,
     amount_paid REAL DEFAULT 0,
-    balance REAL GENERATED ALWAYS AS (amount - amount_paid) STORED,
+    balance REAL DEFAULT 0,
     term TEXT,
     academic_year TEXT DEFAULT '2024/2025',
     due_date TEXT,
@@ -224,7 +214,7 @@ async function setupDatabase() {
     FOREIGN KEY(student_id) REFERENCES students(id)
   )`);
 
-  run(`CREATE TABLE IF NOT EXISTS events (
+  await run(`CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
     description TEXT,
@@ -236,7 +226,7 @@ async function setupDatabase() {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
 
-  run(`CREATE TABLE IF NOT EXISTS sms_logs (
+  await run(`CREATE TABLE IF NOT EXISTS sms_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     recipient_phone TEXT NOT NULL,
     recipient_name TEXT,
@@ -246,34 +236,16 @@ async function setupDatabase() {
     sent_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
 
-  // Ensure mock_number column exists for existing databases
-  try {
-    const cols = query("PRAGMA table_info(mock_exam)");
-    const hasMockNumber = cols.some(c => c.name === 'mock_number');
-    if (!hasMockNumber) {
-      run("ALTER TABLE mock_exam ADD COLUMN mock_number INTEGER DEFAULT 1");
-    }
-  } catch(e) {}
-
-  // Ensure teacher_class_assignments table exists
-  run(`CREATE TABLE IF NOT EXISTS teacher_class_assignments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    teacher_id INTEGER NOT NULL,
-    assigned_class TEXT NOT NULL,
-    UNIQUE(teacher_id, assigned_class),
-    FOREIGN KEY(teacher_id) REFERENCES teachers(id)
-  )`);
-
   // Admin user
-  const admin = query("SELECT id FROM users WHERE username='admin'");
+  const admin = await query("SELECT id FROM users WHERE username='admin'");
   if (!admin.length) {
     const hash = await bcrypt.hash('admin123', 10);
-    run("INSERT INTO users (username,password,role,full_name,email) VALUES (?,?,?,?,?)",
+    await run("INSERT INTO users (username,password,role,full_name,email) VALUES (?,?,?,?,?)",
       ['admin', hash, 'admin', 'System Administrator', 'admin@qasschool.edu.gh']);
     console.log('Admin: admin / admin123');
   }
 
-  const existingStudents = query("SELECT id FROM students LIMIT 1");
+  const existingStudents = await query("SELECT id FROM students LIMIT 1");
   if (!existingStudents.length) {
     const sampleStudents = [
       ['QAS-2025-001','Ama Owusu','2014-03-15','Female','Basic 5','boarding','Kofi Owusu','0244123456'],
@@ -287,33 +259,33 @@ async function setupDatabase() {
       ['QAS-2025-009','Adwoa Gyasi','2018-02-14','Female','Basic 1','boarding','Kwame Gyasi','0244901234'],
       ['QAS-2025-010','Nana Osei','2013-12-01','Male','Basic 9','day','Ama Osei','0244012345'],
     ];
+
     for (const s of sampleStudents) {
       const username = s[0].toLowerCase().replace(/-/g,'');
       const hash = await bcrypt.hash('student123', 10);
-      run("INSERT INTO students (student_id,full_name,date_of_birth,gender,class,student_type,guardian_name,guardian_phone,username,password) VALUES (?,?,?,?,?,?,?,?,?,?)",
+      await run("INSERT INTO students (student_id,full_name,date_of_birth,gender,class,student_type,guardian_name,guardian_phone,username,password) VALUES (?,?,?,?,?,?,?,?,?,?)",
         [...s, username, hash]);
     }
 
-    const allStudents = query("SELECT id,class FROM students");
+    const allStudents = await query("SELECT id,class FROM students");
     for (const st of allStudents) {
       for (const subj of SUBJECTS) {
         const cs = Math.min(50, Math.max(15, Math.floor(Math.random()*36+14)));
         const es = Math.min(50, Math.max(15, Math.floor(Math.random()*36+14)));
         const total = cs + es;
         const grade = total>=80?'A':total>=70?'B':total>=60?'C':total>=50?'D':'F';
-        run("INSERT INTO grades (student_id,subject,class,term,class_score,exam_score,grade) VALUES (?,?,?,?,?,?,?)",
-          [st.id, subj, st.class, 'Term 1', cs, es, grade]);
+        await run("INSERT INTO grades (student_id,subject,class,term,class_score,exam_score,total_score,grade) VALUES (?,?,?,?,?,?,?,?)",
+          [st.id, subj, st.class, 'Term 1', cs, es, total, grade]);
       }
     }
 
-    // Mock exams only for Basic 9
-    const basic9 = query("SELECT id FROM students WHERE class='Basic 9'");
+    const basic9 = await query("SELECT id FROM students WHERE class='Basic 9'");
     for (const st of basic9) {
       for (const subj of SUBJECTS) {
         const score = Math.floor(Math.random()*60+30);
         const grade = score>=80?'A1':score>=75?'B2':score>=70?'B3':score>=65?'C4':score>=60?'C5':score>=55?'C6':score>=50?'D7':score>=45?'E8':'F9';
         const stype = CORE_SUBJECTS.includes(subj) ? 'core' : 'elective';
-        run("INSERT INTO mock_exam (student_id,subject,class,score,grade,subject_type) VALUES (?,?,?,?,?,?)",
+        await run("INSERT INTO mock_exam (student_id,subject,class,score,grade,subject_type) VALUES (?,?,?,?,?,?)",
           [st.id, subj, 'Basic 9', score, grade, stype]);
       }
     }
@@ -323,7 +295,7 @@ async function setupDatabase() {
         const date = new Date(); date.setDate(date.getDate()-d);
         if (date.getDay()===0||date.getDay()===6) continue;
         const status = Math.random()>0.1?'present':'absent';
-        run("INSERT INTO attendance (student_id,class,date,status,term) VALUES (?,?,?,?,?)",
+        await run("INSERT INTO attendance (student_id,class,date,status,term) VALUES (?,?,?,?,?)",
           [st.id, st.class, date.toISOString().split('T')[0], status, 'Term 1']);
       }
     }
@@ -335,7 +307,7 @@ async function setupDatabase() {
       ['Independence Day Holiday','Ghana Independence Day','2025-03-06',null,'holiday'],
       ['Sports Day','Annual inter-house sports competition','2025-02-28',null,'sports'],
     ];
-    for (const ev of evts) run("INSERT INTO events (title,description,event_date,end_date,event_type) VALUES (?,?,?,?,?)",ev);
+    for (const ev of evts) await run("INSERT INTO events (title,description,event_date,end_date,event_type) VALUES (?,?,?,?,?)", ev);
 
     const tList=[
       ['QAS-TCH-001','Mr. Emmanuel Asante','Male','0244111111','Mathematics','B.Ed Mathematics'],
@@ -345,9 +317,9 @@ async function setupDatabase() {
     for (const t of tList) {
       const username = t[0].toLowerCase().replace(/-/g,'');
       const hash = await bcrypt.hash('teacher123',10);
-      run("INSERT INTO teachers (teacher_id,full_name,gender,phone,subject_specialization,qualification,username,password) VALUES (?,?,?,?,?,?,?,?)",[...t,username,hash]);
-      const tr = query("SELECT id FROM teachers WHERE teacher_id=?",[t[0]])[0];
-      if (tr) run("INSERT INTO teacher_subjects (teacher_id,subject) VALUES (?,?)",[tr.id,t[4]]);
+      await run("INSERT INTO teachers (teacher_id,full_name,gender,phone,subject_specialization,qualification,username,password) VALUES (?,?,?,?,?,?,?,?)",[...t,username,hash]);
+      const tr = await query("SELECT id FROM teachers WHERE teacher_id=?",[t[0]]);
+      if (tr[0]) await run("INSERT INTO teacher_subjects (teacher_id,subject) VALUES (?,?)",[tr[0].id, t[4]]);
     }
 
     console.log('Sample data seeded');
