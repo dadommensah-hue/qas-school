@@ -1,63 +1,31 @@
-const initSqlJs = require('sql.js');
-const fs = require('fs');
-const path = require('path');
+const { createClient } = require('@libsql/client');
 
-// Uses /data on Render (persistent disk) or local folder in development
-const DB_DIR = process.env.DB_DIR || __dirname;
-const DB_PATH = path.join(DB_DIR, 'qas_school.db');
-
-let db = null;
+const client = createClient({
+  url: process.env.TURSO_URL,
+  authToken: process.env.TURSO_TOKEN,
+});
 
 async function getDB() {
-  if (db) return db;
-  const SQL = await initSqlJs();
+  return client;
+}
 
-  // Make sure the folder exists
-  if (!fs.existsSync(DB_DIR)) {
-    fs.mkdirSync(DB_DIR, { recursive: true });
-  }
+async function query(sql, params = []) {
+  const result = await client.execute({ sql, args: params });
+  return result.rows;
+}
 
-  if (fs.existsSync(DB_PATH)) {
-    const fileBuffer = fs.readFileSync(DB_PATH);
-    db = new SQL.Database(fileBuffer);
-  } else {
-    db = new SQL.Database();
-  }
-  return db;
+async function run(sql, params = []) {
+  const result = await client.execute({ sql, args: params });
+  return { lastID: result.lastInsertRowid };
+}
+
+async function get(sql, params = []) {
+  const rows = await query(sql, params);
+  return rows[0] || null;
 }
 
 function saveDB() {
-  if (!db) return;
-  const data = db.export();
-  fs.writeFileSync(DB_PATH, Buffer.from(data));
-}
-
-function query(sql, params = []) {
-  if (!db) throw new Error('DB not initialized');
-  try {
-    const stmt = db.prepare(sql);
-    stmt.bind(params);
-    const rows = [];
-    while (stmt.step()) {
-      rows.push(stmt.getAsObject());
-    }
-    stmt.free();
-    return rows;
-  } catch (e) {
-    throw e;
-  }
-}
-
-function run(sql, params = []) {
-  if (!db) throw new Error('DB not initialized');
-  db.run(sql, params);
-  saveDB();
-  return { lastID: db.exec("SELECT last_insert_rowid() as id")[0]?.values[0][0] };
-}
-
-function get(sql, params = []) {
-  const rows = query(sql, params);
-  return rows[0] || null;
+  // Not needed with Turso - data is saved automatically
 }
 
 module.exports = { getDB, saveDB, query, run, get };
