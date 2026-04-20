@@ -2,13 +2,21 @@ const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
 
-const DB_PATH = path.join(__dirname, 'qas_school.db');
+// Uses /data on Render (persistent disk) or local folder in development
+const DB_DIR = process.env.DB_DIR || __dirname;
+const DB_PATH = path.join(DB_DIR, 'qas_school.db');
 
 let db = null;
 
 async function getDB() {
   if (db) return db;
   const SQL = await initSqlJs();
+
+  // Make sure the folder exists
+  if (!fs.existsSync(DB_DIR)) {
+    fs.mkdirSync(DB_DIR, { recursive: true });
+  }
+
   if (fs.existsSync(DB_PATH)) {
     const fileBuffer = fs.readFileSync(DB_PATH);
     db = new SQL.Database(fileBuffer);
