@@ -9,9 +9,21 @@ async function getDB() {
   return client;
 }
 
+// Converts Turso row format to plain objects
+function toPlainObjects(result) {
+  if (!result || !result.rows) return [];
+  return result.rows.map(row => {
+    const obj = {};
+    result.columns.forEach((col, i) => {
+      obj[col] = row[i];
+    });
+    return obj;
+  });
+}
+
 async function query(sql, params = []) {
   const result = await client.execute({ sql, args: params });
-  return result.rows;
+  return toPlainObjects(result);
 }
 
 async function run(sql, params = []) {
