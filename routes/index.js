@@ -20,7 +20,6 @@ const midterm = require('../controllers/midtermController');
 const conduct = require('../controllers/conductController');
 const { authMiddleware, adminOnly, teacherOrAdmin } = require('../middleware/auth');
 
-// Multer for profile photos (base64 handled in-memory)
 const uploadDir = path.join(__dirname, '../uploads/syllabus');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
@@ -64,6 +63,7 @@ router.post('/teachers/:id/assign-class', authMiddleware, adminOnly, teachers.as
 router.post('/attendance', authMiddleware, attendance.mark);
 router.get('/attendance/class/:class', authMiddleware, attendance.getByClass);
 router.get('/attendance/summary', authMiddleware, attendance.summary);
+router.get('/attendance/class-summary', authMiddleware, attendance.classSummary);
 router.get('/attendance/student/:id', authMiddleware, attendance.studentAttendance);
 
 // ── GRADES ──
@@ -72,15 +72,15 @@ router.get('/grades/class/:class', authMiddleware, grades.getByClass);
 router.get('/grades/student/:id', authMiddleware, grades.getStudentReport);
 router.get('/grades/class/:class/performance', authMiddleware, grades.classPerformance);
 router.get('/grades/top-students', authMiddleware, grades.topStudents);
-router.get("/grades/history/:id", authMiddleware, (req, res) => {
-  const { query: q } = require("../database");
+router.get('/grades/history/:id', authMiddleware, async (req, res) => {
+  const { query: q } = require('../database');
   try {
-    const rows = q("SELECT * FROM grade_history WHERE student_id=? ORDER BY class, term, subject", [req.params.id]);
+    const rows = await q("SELECT * FROM grade_history WHERE student_id=? ORDER BY class, term, subject", [req.params.id]);
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── MOCK EXAM (Basic 9 only) ──
+// ── MOCK EXAM ──
 router.get('/mock/list', authMiddleware, mockExam.getMockList);
 router.get('/mock/class', authMiddleware, mockExam.getClassResults);
 router.get('/mock/student/:student_id', authMiddleware, mockExam.getStudentResults);
@@ -124,8 +124,7 @@ router.get('/reports/student/:id', authMiddleware, reports.studentReport);
 router.get('/reports/class/:class', authMiddleware, reports.classReport);
 router.get('/reports/mock/class', authMiddleware, reports.mockClassReport);
 
-
-// ── MIDTERM GRADES (Basic 1-8) ──
+// ── MIDTERM GRADES ──
 router.post('/midterm/grades', authMiddleware, midterm.save);
 router.get('/midterm/class/:class', authMiddleware, midterm.getByClass);
 router.get('/midterm/student/:id', authMiddleware, midterm.getStudentReport);
@@ -137,28 +136,28 @@ router.get('/conduct/student/:student_id', authMiddleware, conduct.get);
 router.post('/conduct', authMiddleware, teacherOrAdmin, conduct.save);
 router.get('/conduct/class/:class', authMiddleware, conduct.getByClass);
 
-// ── GRADES APPROVAL (end-of-term) ──
-router.post('/grades/approve', authMiddleware, adminOnly, (req, res) => {
+// ── GRADES APPROVAL ──
+router.post('/grades/approve', authMiddleware, adminOnly, async (req, res) => {
   const { query: q, run: r, get: g } = require('../database');
   try {
     const { class: cls, term, academic_year } = req.body;
     const ay = academic_year || '2024/2025';
-    const existing = g("SELECT id FROM approved_terms WHERE class=? AND term=? AND exam_type='end_of_term' AND academic_year=?", [cls, term, ay]);
+    const existing = await g("SELECT id FROM approved_terms WHERE class=? AND term=? AND exam_type='end_of_term' AND academic_year=?", [cls, term, ay]);
     if (!existing) {
-      r("INSERT INTO approved_terms (class, term, exam_type, academic_year, approved_by) VALUES (?,?,?,?,?)",
+      await r("INSERT INTO approved_terms (class, term, exam_type, academic_year, approved_by) VALUES (?,?,?,?,?)",
         [cls, term, 'end_of_term', ay, req.user?.id]);
     }
     res.json({ message: 'Report approved' });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── APPROVED TERM (check which term is approved for a class) ──
-router.get('/approved-term/:class', authMiddleware, (req, res) => {
+// ── APPROVED TERM ──
+router.get('/approved-term/:class', authMiddleware, async (req, res) => {
   const { query: q } = require('../database');
   try {
     const cls = req.params.class;
     const academic_year = req.query.academic_year || '2024/2025';
-    const rows = q("SELECT term, exam_type FROM approved_terms WHERE class=? AND academic_year=? ORDER BY id DESC", [cls, academic_year]);
+    const rows = await q("SELECT term, exam_type FROM approved_terms WHERE class=? AND academic_year=? ORDER BY id DESC", [cls, academic_year]);
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
