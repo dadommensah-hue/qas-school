@@ -1,55 +1,43 @@
-const initSqlJs = require('sql.js');
-const fs = require('fs');
-const path = require('path');
+require('dotenv').config();
+const { createClient } = require('@libsql/client');
 
-const DB_PATH = path.join(__dirname, 'qas_school.db');
+let client = null;
 
-let db = null;
+function getClient() {
+  if (client) return client;
 
-async function getDB() {
-  if (db) return db;
-  const SQL = await initSqlJs();
-  if (fs.existsSync(DB_PATH)) {
-    const fileBuffer = fs.readFileSync(DB_PATH);
-    db = new SQL.Database(fileBuffer);
-  } else {
-    db = new SQL.Database();
-  }
-  return db;
+  const url = process.env.TURSO_DATABASE_URL;
+  const authToken = process.env.TURSO_AUTH_TOKEN;
+
+  if (!url) throw new Error('TURSO_DATABASE_URL is not set in environment variables');
+
+  client = createClient({ url, authToken });
+  return client;
 }
 
-function saveDB() {
-  if (!db) return;
-  const data = db.export();
-  fs.writeFileSync(DB_PATH, Buffer.from(data));
+// Sync-style query — returns rows array (awaited internally by async controllers)
+async function query(sql, params = []) {
+  const db = getClient();
+  const result = await db.execute({ sql, args: params });
+  return result.rows;
 }
 
-function query(sql, params = []) {
-  if (!db) throw new Error('DB not initialized');
-  try {
-    const stmt = db.prepare(sql);
-    stmt.bind(params);
-    const rows = [];
-    while (stmt.step()) {
-      rows.push(stmt.getAsObject());
-    }
-    stmt.free();
-    return rows;
-  } catch (e) {
-    throw e;
-  }
+// Sync-style run — returns { lastID }
+async function run(sql, params = []) {
+  const db = getClient();
+  const result = await db.execute({ sql, args: params });
+  return { lastID: Number(result.lastInsertRowid) };
 }
 
-function run(sql, params = []) {
-  if (!db) throw new Error('DB not initialized');
-  db.run(sql, params);
-  saveDB();
-  return { lastID: db.exec("SELECT last_insert_rowid() as id")[0]?.values[0][0] };
-}
-
-function get(sql, params = []) {
-  const rows = query(sql, params);
+// Sync-style get — returns first row or null
+async function get(sql, params = []) {
+  const rows = await query(sql, params);
   return rows[0] || null;
 }
 
-module.exports = { getDB, saveDB, query, run, get };
+// Kept for compatibility with setup.js
+async function getDB() {
+  getClient(); // ensures client is initialised
+}
+
+module.exports = { getDB, query, run, get };
