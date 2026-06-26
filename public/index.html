@@ -1586,10 +1586,10 @@ async function viewStudentMock(id, name) {
     <div class="grid-2">
       <div><h4 style="font-size:12px;font-weight:700;margin-bottom:8px;color:#0369a1;">📘 CORE SUBJECTS</h4>
         <table><thead><tr><th>Subject</th><th>Mark</th><th>Grade</th></tr></thead>
-        <tbody>${core.map(s=>`<tr><td>${s.subject}</td><td><strong>${s.score}</strong>/100</td><td class="bece-${s.grade}">${gradeToNumeric(s.grade)}</td></tr>`).join('')}</tbody></table></div>
+        <tbody>${core.map(s=>`<tr><td>${s.subject}</td><td><strong style="color:#2563eb;">${s.score}</strong>/100</td><td style="color:#dc2626;font-weight:700;" class="bece-${s.grade}">${gradeToNumeric(s.grade)}</td></tr>`).join('')}</tbody></table></div>
       <div><h4 style="font-size:12px;font-weight:700;margin-bottom:8px;color:#7c3aed;">📗 ELECTIVE SUBJECTS</h4>
         <table><thead><tr><th>Subject</th><th>Mark</th><th>Grade</th></tr></thead>
-        <tbody>${elec.map(s=>`<tr><td>${s.subject}</td><td><strong>${s.score}</strong>/100</td><td class="bece-${s.grade}">${gradeToNumeric(s.grade)}</td></tr>`).join('')}</tbody></table></div>
+        <tbody>${elec.map(s=>`<tr><td>${s.subject}</td><td><strong style="color:#2563eb;">${s.score}</strong>/100</td><td style="color:#dc2626;font-weight:700;" class="bece-${s.grade}">${gradeToNumeric(s.grade)}</td></tr>`).join('')}</tbody></table></div>
     </div>`,
     `<button class="btn btn-outline" onclick="closeModal()">Close</button>`, true);
   } catch(e){ toast(e.message,'error'); }
@@ -1682,7 +1682,7 @@ async function previewMockReport() {
         <tbody>${data.map((r,i)=>`<tr style="background:${i%2===0?'#f9fafb':'#fff'};border-bottom:1px solid #e5e7eb;">
           <td style="padding:6px;font-weight:700;text-align:center;">${r.position}</td>
           <td style="padding:6px;font-weight:600;">${r.full_name}</td>
-          ${MOCK_SUBJECTS.map(subj=>{const sc=(r.scores||[]).find(x=>x.subject===subj);const mk=sc?sc.score:'—';const gr=sc?(sc.grade||beceGradeNum(sc.score||0)):'—';return `<td style="padding:5px 3px;text-align:center;">${mk}</td><td style="padding:5px 3px;text-align:center;font-weight:700;">${gr}</td>`;}).join('')}
+          ${MOCK_SUBJECTS.map(subj=>{const sc=(r.scores||[]).find(x=>x.subject===subj);const mk=sc?sc.score:'—';const gr=sc?(sc.grade||beceGradeNum(sc.score||0)):'—';return `<td style="padding:5px 3px;text-align:center;color:#2563eb;font-weight:600;">${mk}</td><td style="padding:5px 3px;text-align:center;font-weight:700;color:#dc2626;">${gr}</td>`;}).join('')}
           <td style="padding:6px;font-weight:800;text-align:center;color:${r.aggregate<=12?'#16a34a':r.aggregate<=24?'#2563eb':'#dc2626'}">${r.aggregate??'—'}</td>
         </tr>`).join('')}</tbody>
       </table>
@@ -2640,8 +2640,8 @@ async function loadStudentMockResults() {
             return `<tr style="background:${i%2===0?'#f9fafb':'#fff'};border-bottom:1px solid #f1f5f9;${used?'font-weight:700;':''}>
               <td style="padding:8px 10px;font-weight:600;">${s.subject}${used?' <span style="font-size:10px;color:#2563eb;margin-left:4px;">★</span>':''}</td>
               <td style="padding:8px 10px;text-align:center;"><span class="badge ${CORE_SUBJECTS.includes(s.subject)?'badge-info':'badge-purple'}">${CORE_SUBJECTS.includes(s.subject)?'Core':'Elective'}</span></td>
-              <td style="padding:8px 10px;text-align:center;font-weight:700;font-size:15px;">${s.score}</td>
-              <td style="padding:8px 10px;text-align:center;font-weight:700;font-size:15px;color:${gc};">${ng}</td>
+              <td style="padding:8px 10px;text-align:center;font-weight:700;font-size:15px;color:#2563eb;">${s.score}</td>
+              <td style="padding:8px 10px;text-align:center;font-weight:700;font-size:15px;color:#dc2626;">${ng}</td>
             </tr>`;
           }).join('')}</tbody>
         </table>

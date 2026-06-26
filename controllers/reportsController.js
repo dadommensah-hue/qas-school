@@ -301,10 +301,11 @@ exports.mockClassReport = (req, res) => {
         const markVal = sc ? String(sc.score||0) : '—';
         const gradeVal = sc ? String(sc.grade||beceGrade(sc.score||0)) : '—';
         const isUsed = r.best4Core?.some(c=>c.subject===subj) || r.best2Elective?.some(c=>c.subject===subj);
-        doc.fillColor(isUsed ? '#1e40af' : CORE.includes(subj) ? '#374151' : '#6b7280')
+        doc.fillColor('#2563eb')
            .font(isUsed ? 'Helvetica-Bold' : 'Helvetica').fontSize(7.5)
            .text(markVal, x, ry+3, { width: markW-1, align: 'center' });
-        doc.text(gradeVal, x+markW, ry+3, { width: gradeW-1, align: 'center' });
+        doc.fillColor('#dc2626').font('Helvetica-Bold')
+           .text(gradeVal, x+markW, ry+3, { width: gradeW-1, align: 'center' });
       });
       const aggText = r.aggregate != null ? String(r.aggregate) : '—';
       doc.fillColor('#dc2626').font('Helvetica-Bold').fontSize(7.5)
