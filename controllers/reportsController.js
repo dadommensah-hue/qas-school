@@ -235,66 +235,71 @@ exports.mockClassReport = (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="mock${mock_number}_exam_report_basic9.pdf"`);
     doc.pipe(res);
 
-    // Header with logo centered above school name
+    // Header: logo ABOVE school name
     const hasLogo = fs.existsSync(LOGO_PATH);
+    const pageW = doc.page.width;
     if (hasLogo) {
       try {
-        const lx = (doc.page.width - 70) / 2;
-        doc.image(LOGO_PATH, lx, doc.y, { width: 70, height: 70 });
-        doc.moveDown(4.5);
+        const lx = (pageW - 80) / 2;
+        doc.image(LOGO_PATH, lx, doc.y, { width: 80, height: 80 });
+        doc.moveDown(5.2);
       } catch(e) {}
     }
-    doc.fontSize(14).font('Helvetica-Bold').fillColor('#1e3a5f').text(SCHOOL_NAME, { align: 'center' });
-    doc.fontSize(9).font('Helvetica').fillColor('#374151').text(SCHOOL_ADDRESS, { align: 'center' });
+    doc.fontSize(16).font('Helvetica-Bold').fillColor('#1e3a5f').text(SCHOOL_NAME, { align: 'center' });
+    doc.fontSize(11).font('Helvetica').fillColor('#374151').text(SCHOOL_ADDRESS, { align: 'center' });
     doc.moveDown(0.3);
-    doc.moveTo(50, doc.y).lineTo(790, doc.y).stroke('#1e3a5f');
+    doc.moveTo(30, doc.y).lineTo(pageW-30, doc.y).stroke('#1e3a5f');
     doc.moveDown(0.3);
-    doc.fontSize(12).font('Helvetica-Bold').fillColor('#1e3a5f')
+    doc.fontSize(13).font('Helvetica-Bold').fillColor('#1e3a5f')
       .text(`MOCK ${mock_number} EXAMINATION RESULTS – BASIC 9`, { align: 'center' });
     doc.moveDown(0.3);
-    doc.moveTo(50, doc.y).lineTo(790, doc.y).stroke('#e5e7eb');
-    doc.moveDown(0.5);
+    doc.moveTo(30, doc.y).lineTo(pageW-30, doc.y).stroke('#e5e7eb');
+    doc.moveDown(0.4);
 
-    doc.fontSize(8).font('Helvetica-Oblique').fillColor('#6b7280')
+    doc.fontSize(9).font('Helvetica-Oblique').fillColor('#6b7280')
       .text('Grading: 1(80-100), 2(75-79), 3(70-74), 4(65-69), 5(60-64), 6(55-59), 7(50-54), 8(45-49), 9(0-44) | Aggregate = Best 4 Core + Best 2 Elective (lower = better)', { align: 'center' });
     doc.moveDown(0.4);
 
-    const colStart = 50;
-    const idW = 20;
-    const nameW = 110;
-    const markW = 30;
-    const gradeW = 24;
-    const subjW = markW + gradeW; // 54 per subject
-    const aggW = 30;
+    const colStart = 30;
+    const idW = 22;
+    const nameW = 140;
+    const markW = 34;
+    const gradeW = 26;
+    const subjW = markW + gradeW; // 60 per subject
+    const aggW = 34;
     const subjectsStart = colStart + idW + nameW;
     const tableY = doc.y;
     const tableW = idW + nameW + MOCK_SUBJECTS.length*subjW + aggW;
 
     // Header row (two-line: subject name on top, Mark|Gr underneath)
-    const headH = 22;
+    const headH = 26;
     doc.rect(colStart, tableY, tableW, headH).fill('#1e3a5f');
-    doc.fillColor('#fff').fontSize(7).font('Helvetica-Bold');
-    doc.text('#', colStart+2, tableY+8, { width: idW-2 });
-    doc.text('Student Name', colStart+idW+2, tableY+8, { width: nameW-2 });
+    doc.fillColor('#fff').fontSize(8).font('Helvetica-Bold');
+    doc.text('#', colStart+2, tableY+9, { width: idW-2 });
+    doc.text('Student Name', colStart+idW+2, tableY+9, { width: nameW-2 });
     MOCK_SUBJECTS.forEach((subj, i) => {
       const x = subjectsStart + i*subjW;
       const label = SUBJECT_ABBR[subj] || subj.split(' ')[0];
-      doc.fillColor('#fff').fontSize(7).font('Helvetica-Bold')
+      doc.fillColor('#fff').fontSize(8).font('Helvetica-Bold')
          .text(label, x, tableY+2, { width: subjW-2, align: 'center' });
-      doc.fontSize(5.5).font('Helvetica')
-         .text('Mark', x, tableY+13, { width: markW-1, align: 'center' });
-      doc.text('Gr', x+markW, tableY+13, { width: gradeW-1, align: 'center' });
+      doc.fontSize(6.5).font('Helvetica')
+         .text('Mark', x, tableY+15, { width: markW-1, align: 'center' });
+      doc.text('Gr', x+markW, tableY+15, { width: gradeW-1, align: 'center' });
     });
-    doc.fontSize(7).font('Helvetica-Bold')
-       .text('Agg', subjectsStart + MOCK_SUBJECTS.length*subjW, tableY+8, { width: aggW-2, align: 'center' });
+    doc.fontSize(8).font('Helvetica-Bold')
+       .text('Agg', subjectsStart + MOCK_SUBJECTS.length*subjW, tableY+9, { width: aggW-2, align: 'center' });
 
+    const rowH = 18;
     let ry = tableY + headH;
     results.forEach((r, ri) => {
-      const bg = ri%2===0 ? '#fff' : '#f8fafc';
-      doc.rect(colStart, ry, tableW, 15).fill(bg);
-      doc.fillColor('#374151').fontSize(7.5).font('Helvetica');
+      const bg = ri%2===0 ? '#fff' : '#f0f4f8';
+      doc.rect(colStart, ry, tableW, rowH).fill(bg);
+      // # and name
+      doc.fillColor('#374151').fontSize(12).font('Helvetica-Bold');
       doc.text(r.position, colStart+2, ry+3, { width: idW-2 });
-      doc.text(r.full_name, colStart+idW+2, ry+3, { width: nameW-2 });
+      // Student name in bold
+      doc.font('Helvetica-Bold').fontSize(12).fillColor('#1e3a5f')
+         .text(r.full_name, colStart+idW+2, ry+3, { width: nameW-2 });
       MOCK_SUBJECTS.forEach((subj, si) => {
         const x = subjectsStart + si*subjW;
         const sc = r.scores.find(s => s.subject===subj);
@@ -302,20 +307,20 @@ exports.mockClassReport = (req, res) => {
         const gradeVal = sc ? String(sc.grade||beceGrade(sc.score||0)) : '—';
         const isUsed = r.best4Core?.some(c=>c.subject===subj) || r.best2Elective?.some(c=>c.subject===subj);
         doc.fillColor('#2563eb')
-           .font(isUsed ? 'Helvetica-Bold' : 'Helvetica').fontSize(7.5)
+           .font(isUsed ? 'Helvetica-Bold' : 'Helvetica').fontSize(12)
            .text(markVal, x, ry+3, { width: markW-1, align: 'center' });
-        doc.fillColor('#dc2626').font('Helvetica-Bold')
+        doc.fillColor('#dc2626').font('Helvetica-Bold').fontSize(12)
            .text(gradeVal, x+markW, ry+3, { width: gradeW-1, align: 'center' });
       });
       const aggText = r.aggregate != null ? String(r.aggregate) : '—';
-      doc.fillColor('#dc2626').font('Helvetica-Bold').fontSize(7.5)
+      doc.fillColor('#dc2626').font('Helvetica-Bold').fontSize(12)
          .text(aggText, subjectsStart + MOCK_SUBJECTS.length*subjW, ry+3, { width: aggW-2, align: 'center' });
-      ry += 15;
-      if (ry > 510) { doc.addPage({ layout:'landscape' }); ry = 50; }
+      ry += rowH;
+      if (ry > 530) { doc.addPage({ layout:'landscape' }); ry = 50; }
     });
 
-    doc.fillColor('#9ca3af').fontSize(7)
-      .text(`Generated: ${new Date().toLocaleDateString('en-GH',{day:'numeric',month:'long',year:'numeric'})} | ${SCHOOL_NAME}`, 50, ry+15, { align: 'center', width: 740 });
+    doc.fillColor('#9ca3af').fontSize(8)
+      .text(`Generated: ${new Date().toLocaleDateString('en-GH',{day:'numeric',month:'long',year:'numeric'})} | ${SCHOOL_NAME}`, 30, ry+12, { align: 'center', width: pageW-60 });
 
     doc.end();
   } catch (e) {
