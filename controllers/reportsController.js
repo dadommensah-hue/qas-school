@@ -212,22 +212,23 @@ const SUBJECT_ABBR = {
   'Social Studies':'Social'
 };
 
-exports.mockClassReport = (req, res) => {
+exports.mockClassReport = async (req, res) => {
   try {
     const academic_year = req.query.academic_year || '2024/2025';
     const mock_number = parseInt(req.query.mock_number) || 1;
-    const students = query("SELECT * FROM students WHERE class='Basic 9' AND status='active' ORDER BY full_name");
+    const students = await query("SELECT * FROM students WHERE class='Basic 9' AND status='active' ORDER BY full_name");
 
     const MOCK_SUBJECTS = ['Career Technology','Computing','Creative Arts and Design','English Language','French','Ghanaian Language','Integrated Science','Mathematics','Religious and Moral Education','Social Studies'];
 
-    const results = students.map(st => {
-      const scores = query("SELECT * FROM mock_exam WHERE student_id=? AND (mock_number=? OR mock_number IS NULL)", [st.id, mock_number]);
+    const results = await Promise.all(students.map(async st => {
+      const scores = await query("SELECT * FROM mock_exam WHERE student_id=? AND (mock_number=? OR mock_number IS NULL)", [st.id, mock_number]);
       const scoresWithGrades = scores.map(s => ({ ...s, grade: beceGrade(s.score||0) }));
       const core = scoresWithGrades.filter(s => CORE.includes(s.subject)).sort((a,b)=>gradePoints(a.grade)-gradePoints(b.grade)).slice(0,4);
       const elec = scoresWithGrades.filter(s => !CORE.includes(s.subject)).sort((a,b)=>gradePoints(a.grade)-gradePoints(b.grade)).slice(0,2);
       const agg = [...core,...elec].reduce((s,x)=>s+gradePoints(x.grade),0);
       return { ...st, scores: scoresWithGrades, aggregate: agg, best4Core: core, best2Elective: elec };
-    }).sort((a,b)=>(a.aggregate??99)-(b.aggregate??99));
+    }));
+    results.sort((a,b)=>(a.aggregate??99)-(b.aggregate??99));
     results.forEach((r,i)=>{ r.position=i+1; });
 
     const doc = new PDFDocument({ margin: 50, size: 'A4', layout: 'landscape' });
