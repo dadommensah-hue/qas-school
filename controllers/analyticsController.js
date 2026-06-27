@@ -2,15 +2,15 @@ const { query, run, get } = require('../database');
 
 exports.dashboard = async (req, res) => {
   try {
-    const totalStudents = await get("SELECT COUNT(*) as count FROM students WHERE status='active'").count;
-    const boardingStudents = await get("SELECT COUNT(*) as count FROM students WHERE status='active' AND student_type='boarding'").count;
-    const dayStudents = await get("SELECT COUNT(*) as count FROM students WHERE status='active' AND student_type='day'").count;
-    const totalTeachers = await get("SELECT COUNT(*) as count FROM teachers WHERE status='active'").count;
+    const _ts = await get("SELECT COUNT(*) as count FROM students WHERE status='active'"); const totalStudents = parseInt(String(parseInt(String(_ts?.count||0))||0));
+    const _bs = await get("SELECT COUNT(*) as count FROM students WHERE status='active' AND student_type='boarding'"); const boardingStudents = parseInt(String(parseInt(String(_bs?.count||0))||0));
+    const _ds = await get("SELECT COUNT(*) as count FROM students WHERE status='active' AND student_type='day'"); const dayStudents = parseInt(String(parseInt(String(_ds?.count||0))||0));
+    const _tt = await get("SELECT COUNT(*) as count FROM teachers WHERE status='active'"); const totalTeachers = parseInt(String(parseInt(String(_tt?.count||0))||0));
     const today = new Date().toISOString().split('T')[0];
-    const todayAttendance = await get("SELECT COUNT(CASE WHEN status='present' THEN 1 END) as present, COUNT(*) as total FROM attendance WHERE date=?", [today]);
-    const avgScore = await get("SELECT AVG(class_score + exam_score) as avg FROM grades WHERE term='Term 1'").avg;
+    const todayAttendance = await get("SELECT COUNT(CASE WHEN status='present' THEN 1 END) as present, COUNT(*) as total FROM attendance WHERE date=?", [today]) || {present:0,total:0};
+    const _avg = await get("SELECT AVG(class_score + exam_score) as avg FROM grades WHERE term='Term 1'"); const avgScore = _avg?.avg ? parseFloat(_avg.avg).toFixed(1) : 0;
     const upcomingEvents = await query("SELECT * FROM events WHERE event_date >= ? ORDER BY event_date LIMIT 5", [today]);
-    const recentSMS = await get("SELECT COUNT(*) as count FROM sms_logs WHERE date(sent_at) = ?", [today]).count;
+    const _sms = await get("SELECT COUNT(*) as count FROM sms_logs WHERE date(sent_at) = ?", [today]); const recentSMS = parseInt(String(_sms?.count||0)) || 0;
     const byClass = await query("SELECT class, COUNT(*) as count FROM students WHERE status='active' GROUP BY class ORDER BY class");
     const gradeDistribution = await query("SELECT grade, COUNT(*) as count FROM grades WHERE term='Term 1' GROUP BY grade ORDER BY grade");
     const weeklyAttendance = await query(`SELECT date,

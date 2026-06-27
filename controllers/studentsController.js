@@ -5,9 +5,10 @@ let counter = { val: null };
 async function nextId() {
   if (!counter.val) {
     const r = await get("SELECT student_id FROM students ORDER BY id DESC LIMIT 1");
-    if (r) {
-      const n = parseInt(r.student_id.split('-')[2] || '0');
-      counter.val = n;
+    if (r && r.student_id) {
+      const parts = String(r.student_id).split('-');
+      const n = parseInt(parts[2] || '0');
+      counter.val = isNaN(n) ? 0 : n;
     } else counter.val = 0;
   }
   counter.val++;
@@ -34,8 +35,8 @@ exports.create = async (req, res) => {
     const { full_name, class: cls, date_of_birth, gender, student_type, guardian_name,
       guardian_phone, guardian_email, address, profile_photo } = req.body;
     if (!full_name || !cls) return res.status(400).json({ error: 'Name and class required' });
-    const student_id = nextId();
-    const username = student_id.toLowerCase().replace(/-/g,'');
+    const student_id = await nextId();
+    const username = String(student_id).toLowerCase().replace(/-/g,'');
     const password = await bcrypt.hash('student123', 10);
     await run(`INSERT INTO students (student_id,full_name,date_of_birth,gender,class,student_type,
       guardian_name,guardian_phone,guardian_email,address,profile_photo,username,password)

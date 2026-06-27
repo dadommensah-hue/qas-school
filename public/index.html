@@ -3138,128 +3138,163 @@ let aiGradeChart = null, aiSubjectChart = null;
 
 async function loadAiAnalysis() {
   const el = document.getElementById('aiAnalysis');
+  if (!el) return;
   const mockNum = currentMockNumber || 1;
-  // Load current results from API
+  el.innerHTML = `<div class="loading-overlay"><div class="spinner"></div></div>`;
+
   let students = [];
   try {
-    const r = await fetch(`/api/mock-exam/class-results?mock_number=${mockNum}`, { headers: { Authorization: `Bearer ${TOKEN}` } });
-    students = await r.json();
-  } catch(e) {}
+    const r = await fetch(`/api/mock/class?mock_number=${mockNum}`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+    if (r.ok) students = await r.json();
+  } catch(e) { console.error('AI load error:', e); }
 
   const subjects = ['Career Technology','Computing','Creative Arts and Design','English Language','French','Ghanaian Language','Integrated Science','Mathematics','Religious and Moral Education','Social Studies'];
   const abbr = {'Career Technology':'C.Tech','Computing':'Computing','Creative Arts and Design':'C.Arts','English Language':'English','French':'French','Ghanaian Language':'Fante','Integrated Science':'Science','Mathematics':'Maths','Religious and Moral Education':'RME','Social Studies':'Social'};
 
+  // Compute quick stats
+  let classAvg = 0, passRate = 0, gradeDist = {A:0,B:0,C:0,D:0,F:0}, subjectAvgs = [];
+  if (students.length > 0) {
+    const avgs = students.map(s => {
+      const sc = (s.scores||[]).map(x => parseFloat(x.score)||0);
+      return sc.length ? Math.round(sc.reduce((a,b)=>a+b,0)/sc.length) : 0;
+    });
+    classAvg = Math.round(avgs.reduce((a,b)=>a+b,0)/avgs.length);
+    passRate = Math.round(avgs.filter(a=>a>=50).length/avgs.length*100);
+    avgs.forEach(a => { if(a>=80)gradeDist.A++; else if(a>=70)gradeDist.B++; else if(a>=60)gradeDist.C++; else if(a>=50)gradeDist.D++; else gradeDist.F++; });
+    subjectAvgs = subjects.map(subj => {
+      const vals = students.map(s => { const sc=(s.scores||[]).find(x=>x.subject===subj); return sc?parseFloat(sc.score):null; }).filter(v=>v!==null);
+      return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length) : 0;
+    });
+  }
+
+  // Build mock options for comparison (1-15)
+  const mockOpts = Array.from({length:15},(_,i)=>`<option value="${i+1}" ${i+1==mockNum?'disabled selected':''}>Mock ${i+1}</option>`).join('');
+
   el.innerHTML = `
   <div style="padding:1.5rem 0">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:1.5rem">
-      <div style="width:42px;height:42px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px">🤖</div>
+      <div style="width:44px;height:44px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px">🤖</div>
       <div>
         <h2 style="font-size:1.1rem;font-weight:600;margin:0">AI Academic Performance Analysis</h2>
-        <p style="font-size:13px;color:#6b7280;margin:0">Mock ${mockNum} — Basic 9 | ${students.length} students loaded automatically</p>
+        <p style="font-size:13px;color:var(--text-muted);margin:2px 0 0">Mock ${mockNum} — Basic 9 &nbsp;|&nbsp; <strong>${students.length}</strong> students loaded</p>
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:1.5rem" id="aiMetrics">
-      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:1rem;text-align:center">
-        <div style="font-size:12px;color:#6b7280;margin-bottom:4px">Total candidates</div>
+    ${students.length === 0 ? `<div style="background:var(--bg-warning);border:1px solid var(--border-warning);color:var(--text-warning);padding:12px 16px;border-radius:8px;margin-bottom:1rem">No results found for Mock ${mockNum}. Please enter scores first in the "Enter Scores" tab.</div>` : ''}
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.5rem">
+      <div style="background:var(--surface-1);border-radius:10px;padding:1rem;text-align:center">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Candidates</div>
         <div style="font-size:24px;font-weight:600">${students.length}</div>
       </div>
-      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:1rem;text-align:center" id="aiPassCard">
-        <div style="font-size:12px;color:#6b7280;margin-bottom:4px">Pass rate</div>
-        <div style="font-size:24px;font-weight:600;color:#16a34a" id="aiPassRate">—</div>
+      <div style="background:var(--surface-1);border-radius:10px;padding:1rem;text-align:center">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Class Average</div>
+        <div style="font-size:24px;font-weight:600">${classAvg}%</div>
       </div>
-      <div style="background:#fafafa;border:1px solid #e2e8f0;border-radius:10px;padding:1rem;text-align:center">
-        <div style="font-size:12px;color:#6b7280;margin-bottom:4px">Class average</div>
-        <div style="font-size:24px;font-weight:600" id="aiClassAvg">—</div>
+      <div style="background:var(--bg-success);border-radius:10px;padding:1rem;text-align:center">
+        <div style="font-size:11px;color:var(--text-success);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Pass Rate</div>
+        <div style="font-size:24px;font-weight:600;color:var(--text-success)">${passRate}%</div>
+      </div>
+      <div style="background:var(--bg-danger);border-radius:10px;padding:1rem;text-align:center">
+        <div style="font-size:11px;color:var(--text-danger);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Fail Rate</div>
+        <div style="font-size:24px;font-weight:600;color:var(--text-danger)">${100-passRate}%</div>
       </div>
     </div>
 
+    ${students.length > 0 ? `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:1.5rem">
-      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1.25rem">
-        <div style="font-size:12px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">Grade distribution</div>
-        <div style="position:relative;height:200px"><canvas id="aiGradeChart"></canvas></div>
+      <div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:1.25rem">
+        <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Grade Distribution</div>
+        <div style="position:relative;height:180px"><canvas id="aiGradeChart" role="img" aria-label="Grade distribution"></canvas></div>
       </div>
-      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1.25rem">
-        <div style="font-size:12px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">Subject averages</div>
-        <div style="position:relative;height:200px"><canvas id="aiSubjectChart"></canvas></div>
+      <div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:1.25rem">
+        <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Subject Averages</div>
+        <div style="position:relative;height:180px"><canvas id="aiSubjectChart" role="img" aria-label="Subject averages"></canvas></div>
       </div>
-    </div>
+    </div>` : ''}
 
-    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1.25rem;margin-bottom:1.5rem">
-      <div style="font-size:12px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">Analysis options</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-        <button class="btn btn-sm ai-focus-btn active" data-focus="comprehensive" onclick="setAiFocus(this)">Comprehensive</button>
-        <button class="btn btn-sm ai-focus-btn" data-focus="overview" onclick="setAiFocus(this)">Overview</button>
-        <button class="btn btn-sm ai-focus-btn" data-focus="risk" onclick="setAiFocus(this)">At-risk students</button>
-        <button class="btn btn-sm ai-focus-btn" data-focus="subjects" onclick="setAiFocus(this)">Subject analysis</button>
-        <button class="btn btn-sm ai-focus-btn" data-focus="predictions" onclick="setAiFocus(this)">BECE predictions</button>
-        <button class="btn btn-sm ai-focus-btn" data-focus="recommendations" onclick="setAiFocus(this)">Recommendations</button>
+    <div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:1.25rem;margin-bottom:1.5rem">
+      <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">Class Analysis Options</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px" id="aiFocusBtns">
+        <button class="btn ai-focus-btn active" data-focus="comprehensive" onclick="setAiFocus(this)">Comprehensive</button>
+        <button class="btn ai-focus-btn" data-focus="overview" onclick="setAiFocus(this)">Overview</button>
+        <button class="btn ai-focus-btn" data-focus="risk" onclick="setAiFocus(this)">At-risk students</button>
+        <button class="btn ai-focus-btn" data-focus="subjects" onclick="setAiFocus(this)">Subject analysis</button>
+        <button class="btn ai-focus-btn" data-focus="predictions" onclick="setAiFocus(this)">BECE predictions</button>
+        <button class="btn ai-focus-btn" data-focus="recommendations" onclick="setAiFocus(this)">Recommendations</button>
       </div>
-      <div style="display:flex;gap:10px">
-        <select id="aiPrevMock" style="flex:1;font-size:13px">
-          <option value="">No previous exam (single analysis)</option>
-          <option value="1">Compare with Mock 1</option>
-          <option value="2">Compare with Mock 2</option>
-          <option value="3">Compare with Mock 3</option>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <select id="aiPrevMock" style="flex:1;min-width:180px;font-size:13px">
+          <option value="">No comparison (single analysis)</option>
+          ${mockOpts}
         </select>
-        <button onclick="runAiAnalysis()" id="aiRunBtn" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;font-size:14px;font-weight:500;display:flex;align-items:center;gap:8px">
-          <span>🤖</span> Generate AI Report
+        <button onclick="runAiClassAnalysis()" id="aiRunBtn" class="btn btn-primary" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border-color:transparent;color:#fff;display:flex;align-items:center;gap:8px;padding:10px 20px">
+          🤖 Generate Class AI Report
         </button>
       </div>
     </div>
 
-    <div id="aiReportOut" style="display:none;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1.5rem;margin-bottom:1rem">
+    <div id="aiReportOut" style="display:none;background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:1.5rem;margin-bottom:1.5rem">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-        <div style="font-size:12px;font-weight:600;color:#374151;text-transform:uppercase;letter-spacing:.05em">AI Analysis Report</div>
-        <button onclick="copyAiReport()" style="font-size:12px;border:1px solid #e2e8f0;border-radius:6px;padding:4px 10px;background:#f8fafc;cursor:pointer">📋 Copy</button>
+        <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em">AI Class Analysis Report</div>
+        <button onclick="copyAiReport('aiReportText')" class="btn" style="font-size:12px;padding:4px 12px">📋 Copy report</button>
       </div>
-      <div id="aiReportText" style="font-size:14px;line-height:1.8;color:#1f2937;white-space:pre-wrap"></div>
+      <div id="aiReportText" style="font-size:14px;line-height:1.8;color:var(--text-primary);white-space:pre-wrap"></div>
     </div>
+
+    ${students.length > 0 ? `
+    <div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:1.25rem">
+      <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">Individual Student AI Analysis</div>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Select a student to generate a personalised AI performance report with predictions, strengths, weaknesses, and recommendations.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        <select id="aiStudentSelect" style="flex:1;min-width:200px;font-size:13px">
+          <option value="">— Select a student —</option>
+          ${students.sort((a,b)=>a.full_name.localeCompare(b.full_name)).map(s=>`<option value="${s.id}">${s.full_name}</option>`).join('')}
+        </select>
+        <button onclick="runAiStudentAnalysis()" id="aiStudentBtn" class="btn btn-primary" style="background:linear-gradient(135deg,#0ea5e9,#6366f1);border-color:transparent;color:#fff;display:flex;align-items:center;gap:8px;padding:10px 20px">
+          🎓 Generate Student Report
+        </button>
+      </div>
+      <div id="aiStudentOut" style="display:none;background:var(--surface-1);border:0.5px solid var(--border);border-radius:10px;padding:1.25rem;margin-top:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em">Individual Student Report</div>
+          <button onclick="copyAiReport('aiStudentText')" class="btn" style="font-size:12px;padding:4px 12px">📋 Copy</button>
+        </div>
+        <div id="aiStudentText" style="font-size:14px;line-height:1.8;color:var(--text-primary);white-space:pre-wrap"></div>
+      </div>
+    </div>` : ''}
+
   </div>`;
 
-  // Compute stats from loaded students
+  // Store data for AI calls
+  window._aiStudents = students;
+  window._aiSubjects = subjects;
+  window._aiSubjectAvgs = subjectAvgs;
+  window._aiStats = { classAvg, passRate, gradeDist, total: students.length, mockNum };
+  window._aiAbbr = abbr;
+
+  // Draw charts if data exists
   if (students.length > 0) {
-    const avgs = students.map(s => {
-      const scores = (s.scores||[]).map(x => parseFloat(x.score)||0);
-      return scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : 0;
-    });
-    const classAvg = Math.round(avgs.reduce((a,b)=>a+b,0)/avgs.length);
-    const passRate = Math.round((avgs.filter(a=>a>=50).length/avgs.length)*100);
-    document.getElementById('aiPassRate').textContent = passRate + '%';
-    document.getElementById('aiClassAvg').textContent = classAvg + '%';
-
-    // Grade distribution
-    const grades = {A:0,B:0,C:0,D:0,F:0};
-    avgs.forEach(a => { if(a>=80)grades.A++; else if(a>=70)grades.B++; else if(a>=60)grades.C++; else if(a>=50)grades.D++; else grades.F++; });
-
-    if (aiGradeChart) aiGradeChart.destroy();
-    aiGradeChart = new Chart(document.getElementById('aiGradeChart'), {
-      type:'bar',
-      data:{ labels:['A (80+)','B (70-79)','C (60-69)','D (50-59)','F (<50)'],
-             datasets:[{data:Object.values(grades),backgroundColor:['#16a34a','#2563eb','#d97706','#ea580c','#dc2626'],borderRadius:4}]},
-      options:{ responsive:true,maintainAspectRatio:false, plugins:{legend:{display:false}},
-                scales:{ x:{grid:{display:false}}, y:{beginAtZero:true,ticks:{stepSize:1}} } }
-    });
-
-    // Subject averages
-    const subjectAvgs = subjects.map(subj => {
-      const vals = students.map(s => { const sc=(s.scores||[]).find(x=>x.subject===subj); return sc?parseFloat(sc.score)||0:null; }).filter(v=>v!==null);
-      return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length) : 0;
-    });
-    if (aiSubjectChart) aiSubjectChart.destroy();
-    aiSubjectChart = new Chart(document.getElementById('aiSubjectChart'), {
-      type:'bar',
-      data:{ labels:subjects.map(s=>abbr[s]||s),
-             datasets:[{data:subjectAvgs,backgroundColor:subjectAvgs.map(v=>v>=70?'#16a34a':v>=50?'#d97706':'#dc2626'),borderRadius:4}]},
-      options:{ responsive:true,maintainAspectRatio:false, plugins:{legend:{display:false}},
-                scales:{ x:{grid:{display:false},ticks:{font:{size:10}}}, y:{beginAtZero:true,max:100} } }
-    });
-
-    // Store for AI call
-    window._aiStudents = students;
-    window._aiSubjects = subjects;
-    window._aiSubjectAvgs = subjectAvgs;
-    window._aiStats = { classAvg, passRate, grades, total: students.length, mockNum };
+    setTimeout(() => {
+      if (aiGradeChart) { try { aiGradeChart.destroy(); } catch(e){} }
+      const gc = document.getElementById('aiGradeChart');
+      if (gc) aiGradeChart = new Chart(gc, {
+        type:'bar',
+        data:{ labels:['A (80+)','B (70-79)','C (60-69)','D (50-59)','F (<50)'],
+               datasets:[{data:Object.values(gradeDist),backgroundColor:['#16a34a','#2563eb','#d97706','#ea580c','#dc2626'],borderRadius:4}]},
+        options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+                  scales:{x:{grid:{display:false}},y:{beginAtZero:true,ticks:{stepSize:1}}} }
+      });
+      if (aiSubjectChart) { try { aiSubjectChart.destroy(); } catch(e){} }
+      const sc = document.getElementById('aiSubjectChart');
+      if (sc) aiSubjectChart = new Chart(sc, {
+        type:'bar',
+        data:{ labels:subjects.map(s=>abbr[s]||s),
+               datasets:[{data:subjectAvgs,backgroundColor:subjectAvgs.map(v=>v>=70?'#16a34a':v>=50?'#d97706':'#dc2626'),borderRadius:4}]},
+        options:{ responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+                  scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{beginAtZero:true,max:100}} }
+      });
+    }, 100);
   }
 }
 
@@ -3270,56 +3305,55 @@ function setAiFocus(btn) {
   _aiFocus = btn.dataset.focus;
 }
 
-function copyAiReport() {
-  const text = document.getElementById('aiReportText').textContent;
-  navigator.clipboard.writeText(text).then(() => alert('Report copied to clipboard!'));
+function copyAiReport(id) {
+  const text = document.getElementById(id)?.textContent || '';
+  navigator.clipboard.writeText(text).then(() => alert('Copied to clipboard!')).catch(() => alert('Copy failed - please select and copy manually.'));
 }
 
-async function runAiAnalysis() {
+async function runAiClassAnalysis() {
   const btn = document.getElementById('aiRunBtn');
   const students = window._aiStudents || [];
   const stats = window._aiStats || {};
   const subjects = window._aiSubjects || [];
   const subjectAvgs = window._aiSubjectAvgs || [];
-  const prevMock = document.getElementById('aiPrevMock').value;
+  const prevMock = document.getElementById('aiPrevMock')?.value;
 
-  if (!students.length) { alert('No student data loaded. Please load Mock results first.'); return; }
+  if (!students.length) { alert('No student data. Please enter Mock scores first.'); return; }
 
-  btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite"></span> Analysing...';
   btn.disabled = true;
+  btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite"></span> Analysing...';
 
-  // Build student summary
-  const sortedStudents = [...students].sort((a,b) => (a.aggregate??99)-(b.aggregate??99));
+  const sortedStudents = [...students].sort((a,b) => (Number(a.aggregate)||99)-(Number(b.aggregate)||99));
   const studentLines = sortedStudents.map((s,i) => {
-    const scores = (s.scores||[]);
-    const sorted = [...scores].sort((a,b)=>parseFloat(b.score)-parseFloat(a.score));
+    const sc = s.scores||[];
+    const sorted = [...sc].sort((a,b)=>parseFloat(b.score)-parseFloat(a.score));
     const best = sorted.slice(0,2).map(x=>x.subject).join(', ');
     const worst = sorted.slice(-2).map(x=>x.subject).join(', ');
-    const avg = scores.length ? Math.round(scores.reduce((a,x)=>a+(parseFloat(x.score)||0),0)/scores.length) : 0;
-    return `${i+1}. ${s.full_name} — avg: ${avg}%, agg: ${s.aggregate??'N/A'}, best: ${best}, weakest: ${worst}`;
+    const avg = sc.length ? Math.round(sc.reduce((a,x)=>a+(parseFloat(x.score)||0),0)/sc.length) : 0;
+    return `${i+1}. ${s.full_name} — avg:${avg}%, agg:${s.aggregate??'N/A'}, best:${best}, weakest:${worst}`;
   }).join('\n');
 
   const subjectLines = subjects.map((s,i) => {
-    const vals = students.map(st => { const sc=(st.scores||[]).find(x=>x.subject===s); return sc?parseFloat(sc.score)||0:null; }).filter(v=>v!==null);
-    const passRate = vals.length ? Math.round(vals.filter(v=>v>=50).length/vals.length*100) : 0;
-    return `${s}: avg=${subjectAvgs[i]}%, pass=${passRate}%, high=${Math.max(...vals)||0}, low=${Math.min(...vals)||0}`;
+    const vals = students.map(st => { const sc=(st.scores||[]).find(x=>x.subject===s); return sc?parseFloat(sc.score):null; }).filter(v=>v!==null);
+    const pr = vals.length ? Math.round(vals.filter(v=>v>=50).length/vals.length*100) : 0;
+    return `${s}: avg=${subjectAvgs[i]}%, pass=${pr}%, high=${vals.length?Math.max(...vals):0}, low=${vals.length?Math.min(...vals):0}`;
   }).join('\n');
 
   const focusMap = {
-    comprehensive: 'Provide a comprehensive analysis covering all sections.',
-    overview: 'Provide a concise overview and key highlights only — keep it brief.',
-    risk: 'Focus entirely on at-risk students, declining performance, and urgent interventions needed.',
-    subjects: 'Focus entirely on subject-by-subject analysis with difficulty ratings and teaching strategies.',
-    predictions: 'Focus entirely on BECE aggregate predictions and future performance trajectories for each student.',
-    recommendations: 'Focus entirely on actionable recommendations for teachers, parents, and school administration.'
+    comprehensive:'Provide a comprehensive analysis covering ALL sections below.',
+    overview:'Provide a concise 3-paragraph overview and key highlights only.',
+    risk:'Focus entirely on at-risk students needing urgent intervention.',
+    subjects:'Focus entirely on subject-by-subject analysis with difficulty ratings and teaching strategies.',
+    predictions:'Focus entirely on BECE aggregate predictions for each student.',
+    recommendations:'Focus entirely on actionable recommendations for teachers, parents, and administration.'
   };
 
   const prompt = `You are an expert academic analyst for a Ghanaian basic school. Analyse this examination data and generate a professional report.
 
 SCHOOL: Queen of Apostles Boarding School, Elmina
 EXAM: Mock ${stats.mockNum} | CLASS: Basic 9 | YEAR: 2024/2025
-TOTAL STUDENTS: ${stats.total} | CLASS AVERAGE: ${stats.classAvg}% | PASS RATE: ${stats.passRate}%
-GRADE DISTRIBUTION: A:${stats.grades.A} B:${stats.grades.B} C:${stats.grades.C} D:${stats.grades.D} F:${stats.grades.F}
+TOTAL: ${stats.total} | CLASS AVG: ${stats.classAvg}% | PASS: ${stats.passRate}% | FAIL: ${100-stats.passRate}%
+GRADES: A:${stats.gradeDist?.A||0} B:${stats.gradeDist?.B||0} C:${stats.gradeDist?.C||0} D:${stats.gradeDist?.D||0} F:${stats.gradeDist?.F||0}
 
 SUBJECT PERFORMANCE:
 ${subjectLines}
@@ -3327,41 +3361,130 @@ ${subjectLines}
 STUDENT RANKINGS (by BECE aggregate — lower is better):
 ${studentLines}
 
-${prevMock ? `NOTE: Compare with Mock ${prevMock} data where possible.` : ''}
+${prevMock ? `COMPARISON: This is Mock ${stats.mockNum}. Compare trends with Mock ${prevMock} where possible.` : ''}
 
-FOCUS: ${focusMap[_aiFocus]}
+FOCUS: ${focusMap[_aiFocus]||focusMap.comprehensive}
 
-Structure your report with these sections using emoji headings:
-
+Structure the report with emoji headings:
 📊 OVERALL EXAMINATION SUMMARY
-📚 SUBJECT ANALYSIS (with difficulty rating for each subject)
-🎯 AT-RISK STUDENTS (names, reasons, recommended actions)
+📚 SUBJECT ANALYSIS (difficulty rating per subject: Easy/Moderate/Challenging/Very Challenging)
+🎯 AT-RISK STUDENTS (names, specific reasons, recommended actions)
 🌟 TOP PERFORMERS (names, achievements, development suggestions)
-🔮 BECE PREDICTIONS (expected aggregate range per student, pass/fail likelihood)
-💡 RECOMMENDATIONS (specific actions for teachers, parents, administration)
+🔮 BECE PREDICTIONS (expected aggregate range per student, likelihood of passing with agg ≤24)
+💡 RECOMMENDATIONS (specific actions for: teachers, parents/guardians, administration)
 
-Be specific — use actual student names and scores. Professional, constructive tone. 700-1000 words.`;
+Use actual student names and scores. Professional, constructive, encouraging tone. 700–1000 words.`;
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1500, messages:[{role:'user',content:prompt}] })
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1800, messages:[{role:'user',content:prompt}] })
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error.message);
-    const text = data.content?.[0]?.text || 'No response.';
-    document.getElementById('aiReportText').textContent = text;
+    document.getElementById('aiReportText').textContent = data.content?.[0]?.text || 'No response.';
     document.getElementById('aiReportOut').style.display = 'block';
-    document.getElementById('aiReportOut').scrollIntoView({behavior:'smooth', block:'start'});
-  } catch(e) {
-    alert('AI analysis failed: ' + e.message);
-  } finally {
-    btn.innerHTML = '<span>🤖</span> Generate AI Report';
+    document.getElementById('aiReportOut').scrollIntoView({behavior:'smooth',block:'start'});
+  } catch(e) { alert('AI analysis failed: ' + e.message); }
+  finally {
     btn.disabled = false;
+    btn.innerHTML = '🤖 Generate Class AI Report';
   }
 }
 
+async function runAiStudentAnalysis() {
+  const btn = document.getElementById('aiStudentBtn');
+  const sel = document.getElementById('aiStudentSelect');
+  const students = window._aiStudents || [];
+  const stats = window._aiStats || {};
+  const subjects = window._aiSubjects || [];
+
+  const studentId = sel?.value;
+  if (!studentId) { alert('Please select a student.'); return; }
+
+  const student = students.find(s => String(s.id) === String(studentId));
+  if (!student) { alert('Student not found.'); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite"></span> Generating...';
+
+  const sc = student.scores || [];
+  const sortedScores = [...sc].sort((a,b) => parseFloat(b.score)-parseFloat(a.score));
+  const avg = sc.length ? Math.round(sc.reduce((a,x)=>a+(parseFloat(x.score)||0),0)/sc.length) : 0;
+
+  // Class ranking
+  const sortedClass = [...students].sort((a,b)=>(Number(a.aggregate)||99)-(Number(b.aggregate)||99));
+  const rank = sortedClass.findIndex(s=>String(s.id)===String(studentId)) + 1;
+
+  const subjectLines = subjects.map(subj => {
+    const s = sc.find(x=>x.subject===subj);
+    const score = s ? parseFloat(s.score)||0 : null;
+    const subjectAvg = window._aiSubjectAvgs?.[subjects.indexOf(subj)] || 0;
+    return score !== null ? `${subj}: ${score}/100 (class avg: ${subjectAvg})` : `${subj}: Not taken`;
+  }).join('\n');
+
+  const prompt = `You are an expert academic analyst for a Ghanaian basic school. Generate a detailed individual performance report for this student.
+
+SCHOOL: Queen of Apostles Boarding School, Elmina
+EXAMINATION: Mock ${stats.mockNum} | CLASS: Basic 9 | YEAR: 2024/2025
+
+STUDENT: ${student.full_name}
+Overall average: ${avg}% | BECE Aggregate: ${student.aggregate ?? 'N/A'} | Class rank: ${rank} of ${students.length}
+
+SUBJECT SCORES (with class averages for comparison):
+${subjectLines}
+
+CLASS CONTEXT:
+Class average: ${stats.classAvg}% | Pass rate: ${stats.passRate}%
+Best students aggregate: ${sortedClass[0]?.aggregate ?? 'N/A'} | Weakest aggregate: ${sortedClass[sortedClass.length-1]?.aggregate ?? 'N/A'}
+
+Generate a comprehensive individual student report with these sections:
+
+Student: ${student.full_name}
+Examination: Mock ${stats.mockNum} Examination
+
+Overall Performance
+[2-3 sentences on overall performance, aggregate, and class standing]
+
+Subject Analysis
+[For EACH subject: performance level (Excellent/Very Good/Good/Satisfactory/Fair/Weak/Needs Improvement) with one specific sentence of comment and advice]
+
+Strengths
+[3-4 bullet points of specific academic strengths based on scores]
+
+Areas for Improvement
+[3-4 specific subjects/skills needing improvement with concrete suggestions]
+
+Progress Assessment
+[2 sentences on overall academic trajectory and effort level]
+
+AI Prediction
+[Expected aggregate range in next examination if trends continue, with specific conditions]
+
+Personalized Recommendations
+[5-6 specific, actionable daily study recommendations]
+
+Motivation
+[One powerful encouraging quote in quotation marks, personalised to this student]
+
+Use the student's actual name throughout. Be specific, warm, professional, and constructive. 400-600 words.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1200, messages:[{role:'user',content:prompt}] })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    document.getElementById('aiStudentText').textContent = data.content?.[0]?.text || 'No response.';
+    document.getElementById('aiStudentOut').style.display = 'block';
+    document.getElementById('aiStudentOut').scrollIntoView({behavior:'smooth',block:'start'});
+  } catch(e) { alert('Student analysis failed: ' + e.message); }
+  finally {
+    btn.disabled = false;
+    btn.innerHTML = '🎓 Generate Student Report';
+  }
+}
 </script>
 </body>
 </html>
