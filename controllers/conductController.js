@@ -45,11 +45,11 @@ exports.getByClass = async (req, res) => {
     const { class: cls } = req.params;
     const { term, academic_year, exam_type } = req.query;
     const students = await query("SELECT id, full_name, student_id FROM students WHERE class=? AND status='active' ORDER BY full_name", [cls]);
-    const results = students.map(s => {
+    const results = await Promise.all(students.map(async s => {
       const c = await get("SELECT * FROM report_conduct WHERE student_id=? AND term=? AND academic_year=? AND exam_type=?",
         [s.id, term || 'Term 1', academic_year || '2024/2025', exam_type || 'end_of_term']);
       return { ...s, ...(c || { conduct:'', interest:'', attitude:'', teacher_remark:'', promoted_to:'', next_term_begins:'' }) };
-    });
+    }));
     res.json(results);
   } catch (e) { res.status(500).json({ error: e.message }); }
 };

@@ -17,7 +17,7 @@ function beceGrade(score) {
 
 function gradePoints(grade) {
   const g = parseInt(grade);
-  return (g >= 1 && g <= 9) ? g : ({ A1:1, B2:2, B3:3, C4:4, C5:5, C6:6, D7:7, E8:8, F9:9 }[grade] || 9);
+  return (g >= 1 && g <= 9) ? g : ({ A1:1,B2:2,B3:3,C4:4,C5:5,C6:6,D7:7,E8:8,F9:9 }[grade] || 9);
 }
 
 function calcAggregate(scores) {
@@ -26,20 +26,15 @@ function calcAggregate(scores) {
   const electiveScores = withGrades.filter(s => !CORE.includes(s.subject));
   const best4Core = [...coreScores].sort((a,b) => gradePoints(a.grade)-gradePoints(b.grade)).slice(0,4);
   const best2Elective = [...electiveScores].sort((a,b) => gradePoints(a.grade)-gradePoints(b.grade)).slice(0,2);
-  const used = [...best4Core, ...best2Elective];
-  const aggregate = used.reduce((sum, s) => sum + gradePoints(s.grade), 0);
+  const aggregate = [...best4Core,...best2Elective].reduce((sum,s) => sum+gradePoints(s.grade),0);
   return { aggregate, best4Core, best2Elective };
 }
 
 // Ensure mock_number column exists
 (async () => {
   try {
-    const cols = await query("PRAGMA table_info(mock_exam)");
-    const hasMockNumber = Array.isArray(cols) && cols.some(c => c.name === 'mock_number');
-    if (!hasMockNumber) {
-      await run("ALTER TABLE mock_exam ADD COLUMN mock_number INTEGER DEFAULT 1");
-    }
-  } catch(e) { console.log('mock_number column check:', e.message); }
+    await run("ALTER TABLE mock_exam ADD COLUMN mock_number INTEGER DEFAULT 1");
+  } catch(e) { /* column already exists */ }
 })();
 
 exports.getStudentResults = async (req, res) => {
@@ -58,13 +53,14 @@ exports.getClassResults = async (req, res) => {
   try {
     const mock_number = parseInt(req.query.mock_number) || 1;
     const students = await query("SELECT * FROM students WHERE class='Basic 9' AND status='active' ORDER BY full_name");
-    const results = students.map(st => {
+    const results = await Promise.all(students.map(async st => {
       const rawScores = await query("SELECT * FROM mock_exam WHERE student_id=? AND (mock_number=? OR mock_number IS NULL)", [st.id, mock_number]);
       const scores = rawScores.map(s => ({ ...s, grade: s.grade || beceGrade(parseFloat(s.score)||0) }));
       if (!scores.length) return { ...st, aggregate: null, best4Core: [], best2Elective: [], scores: [] };
       const { aggregate, best4Core, best2Elective } = calcAggregate(scores);
       return { ...st, aggregate, best4Core, best2Elective, scores };
-    }).sort((a,b) => (a.aggregate??999)-(b.aggregate??999));
+    }));
+    results.sort((a,b) => (a.aggregate??999)-(b.aggregate??999));
     results.forEach((r,i) => { r.position = i+1; });
     res.json(results);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -75,7 +71,7 @@ exports.saveScores = async (req, res) => {
     const { scores, mock_number } = req.body;
     const mn = parseInt(mock_number) || 1;
     for (const s of (scores||[])) {
-      if (MOCK_SUBJECTS.indexOf(s.subject) === -1) continue; // skip History and unknown subjects
+      if (!MOCK_SUBJECTS.includes(s.subject)) continue;
       const grade = beceGrade(parseFloat(s.score)||0);
       const stype = CORE.includes(s.subject) ? 'core' : 'elective';
       const existing = await get("SELECT id FROM mock_exam WHERE student_id=? AND subject=? AND mock_number=?", [s.student_id, s.subject, mn]);
