@@ -32,13 +32,15 @@ function calcAggregate(scores) {
 }
 
 // Ensure mock_number column exists
-try {
-  const cols = await query("PRAGMA table_info(mock_exam)");
-  const hasMockNumber = cols.some(c => c.name === 'mock_number');
-  if (!hasMockNumber) {
-    await run("ALTER TABLE mock_exam ADD COLUMN mock_number INTEGER DEFAULT 1");
-  }
-} catch(e) { console.log('mock_number column check:', e.message); }
+(async () => {
+  try {
+    const cols = await query("PRAGMA table_info(mock_exam)");
+    const hasMockNumber = Array.isArray(cols) && cols.some(c => c.name === 'mock_number');
+    if (!hasMockNumber) {
+      await run("ALTER TABLE mock_exam ADD COLUMN mock_number INTEGER DEFAULT 1");
+    }
+  } catch(e) { console.log('mock_number column check:', e.message); }
+})();
 
 exports.getStudentResults = async (req, res) => {
   try {
