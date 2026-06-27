@@ -304,6 +304,37 @@ async function setupDatabase() {
 
     console.log('Sample data seeded');
   }
+  // Repair: fix any students/teachers with missing or empty passwords
+  try {
+    const brokenStudents = await query("SELECT id,student_id FROM students WHERE password IS NULL OR password=''");
+    for (const s of brokenStudents) {
+      const hash = await bcrypt.hash('student123', 10);
+      await run("UPDATE students SET password=? WHERE id=?", [hash, s.id]);
+    }
+    if (brokenStudents.length) console.log(`Fixed passwords for ${brokenStudents.length} students`);
+
+    const brokenTeachers = await query("SELECT id,teacher_id FROM teachers WHERE password IS NULL OR password=''");
+    for (const t of brokenTeachers) {
+      const hash = await bcrypt.hash('teacher123', 10);
+      await run("UPDATE teachers SET password=? WHERE id=?", [hash, t.id]);
+    }
+    if (brokenTeachers.length) console.log(`Fixed passwords for ${brokenTeachers.length} teachers`);
+
+    // Also fix admin
+    const adminUser = await get("SELECT id,password FROM users WHERE username='admin'");
+    if (adminUser && (!adminUser.password || adminUser.password.length < 10)) {
+      const hash = await bcrypt.hash('admin123', 10);
+      await run("UPDATE users SET password=? WHERE id=?", [hash, adminUser.id]);
+      console.log('Fixed admin password');
+    }
+    if (!adminUser) {
+      const hash = await bcrypt.hash('admin123', 10);
+      await run("INSERT INTO users (username,password,role,full_name,email) VALUES (?,?,?,?,?)",
+        ['admin', hash, 'admin', 'System Administrator', 'admin@qasschool.edu.gh']);
+      console.log('Admin created: admin / admin123');
+    }
+  } catch(e) { console.error('Password repair error:', e.message); }
+
   console.log('Database ready');
 }
 
