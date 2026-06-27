@@ -1,4 +1,4 @@
-const { getDB, run, query } = require('./database');
+const { getDB, run, query, get } = require('./database');
 const bcrypt = require('bcryptjs');
 
 const CLASSES = ['Basic 1','Basic 2','Basic 3','Basic 4','Basic 5','Basic 6','Basic 7','Basic 8','Basic 9'];
