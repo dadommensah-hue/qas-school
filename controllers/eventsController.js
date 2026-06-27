@@ -1,6 +1,6 @@
 const { query, run, get } = require('../database');
 
-exports.list = (req, res) => {
+exports.list = async (req, res) => {
   const { month, year, class: cls } = req.query;
   let sql = "SELECT * FROM events WHERE 1=1";
   const params = [];
@@ -10,14 +10,14 @@ exports.list = (req, res) => {
   }
   if (cls && cls !== 'all') { sql += " AND (class=? OR class='all')"; params.push(cls); }
   sql += " ORDER BY event_date";
-  const events = query(sql, params);
+  const events = await query(sql, params);
   res.json(events);
 };
 
-exports.create = (req, res) => {
+exports.create = async (req, res) => {
   try {
     const { title, description, event_date, end_date, event_type, class: cls } = req.body;
-    const result = run("INSERT INTO events (title, description, event_date, end_date, event_type, class, created_by) VALUES (?,?,?,?,?,?,?)",
+    const result = await run("INSERT INTO events (title, description, event_date, end_date, event_type, class, created_by) VALUES (?,?,?,?,?,?,?)",
       [title, description, event_date, end_date, event_type || 'general', cls || 'all', req.user?.id]);
     res.status(201).json({ id: result.lastID, message: 'Event created' });
   } catch (e) {
@@ -25,20 +25,20 @@ exports.create = (req, res) => {
   }
 };
 
-exports.update = (req, res) => {
+exports.update = async (req, res) => {
   const { title, description, event_date, end_date, event_type, class: cls } = req.body;
-  run("UPDATE events SET title=?, description=?, event_date=?, end_date=?, event_type=?, class=? WHERE id=?",
+  await run("UPDATE events SET title=?, description=?, event_date=?, end_date=?, event_type=?, class=? WHERE id=?",
     [title, description, event_date, end_date, event_type, cls, req.params.id]);
   res.json({ message: 'Event updated' });
 };
 
-exports.delete = (req, res) => {
-  run("DELETE FROM events WHERE id=?", [req.params.id]);
+exports.delete = async (req, res) => {
+  await run("DELETE FROM events WHERE id=?", [req.params.id]);
   res.json({ message: 'Event deleted' });
 };
 
-exports.upcoming = (req, res) => {
+exports.upcoming = async (req, res) => {
   const today = new Date().toISOString().split('T')[0];
-  const events = query("SELECT * FROM events WHERE event_date >= ? ORDER BY event_date LIMIT 10", [today]);
+  const events = await query("SELECT * FROM events WHERE event_date >= ? ORDER BY event_date LIMIT 10", [today]);
   res.json(events);
 };

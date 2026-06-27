@@ -45,7 +45,7 @@ function gradeColor(grade) {
   return colors[grade] || '#374151';
 }
 
-exports.studentReport = (req, res) => {
+exports.studentReport = async (req, res) => {
   try {
     const { id } = req.params;
     const { term, academic_year, next_term_begins, promoted_to } = req.query;
@@ -329,7 +329,7 @@ exports.mockClassReport = async (req, res) => {
   }
 };
 
-exports.classReport = (req, res) => {
+exports.classReport = async (req, res) => {
   try {
     const { class: cls } = req.params;
     const { term } = req.query;
