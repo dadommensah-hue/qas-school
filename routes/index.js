@@ -159,6 +159,29 @@ router.get('/approved-term/:class', authMiddleware, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── EMERGENCY PASSWORD RESET (temporary - remove after fixing) ──
+router.get('/auth/emergency-reset/:secret', async (req, res) => {
+  if (req.params.secret !== 'qas2024reset') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const bcrypt = require('bcryptjs');
+    const { query, run } = require('../database');
+    const sh = await bcrypt.hash('student123', 10);
+    const th = await bcrypt.hash('teacher123', 10);
+    const ah = await bcrypt.hash('admin123', 10);
+    await run('UPDATE students SET password=?', [sh]);
+    await run('UPDATE teachers SET password=?', [th]);
+    await run("UPDATE users SET password=? WHERE username='admin'", [ah]);
+    const students = await query('SELECT username, full_name FROM students ORDER BY full_name');
+    const teachers = await query('SELECT username, full_name FROM teachers ORDER BY full_name');
+    res.json({
+      message: 'All passwords reset successfully!',
+      admin: 'admin / admin123',
+      students: students.map(s => ({ username: s.username, password: 'student123', name: s.full_name })),
+      teachers: teachers.map(t => ({ username: t.username, password: 'teacher123', name: t.full_name }))
+    });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── AI PROXY ROUTE (uses Google Gemini free tier) ──
 router.post('/ai/analyze', authMiddleware, async (req, res) => {
   try {
