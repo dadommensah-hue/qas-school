@@ -2,7 +2,7 @@ const bcrypt = require('bcryptjs');
 const { query, run, get } = require('../database');
 
 let counter = { val: null };
-function nextId() {
+async function nextId() {
   if (!counter.val) {
     const r = await get("SELECT student_id FROM students ORDER BY id DESC LIMIT 1");
     if (r) {

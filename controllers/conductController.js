@@ -1,7 +1,7 @@
 const { query, run, get } = require('../database');
 
 // Ensure next_term_begins column exists on existing databases
-function ensureNextTermColumn() {
+async function ensureNextTermColumn() {
   try {
     const cols = await query("PRAGMA table_info(report_conduct)");
     if (cols.length > 0 && !cols.some(c => c.name === 'next_term_begins')) {
@@ -10,7 +10,7 @@ function ensureNextTermColumn() {
     }
   } catch(e) { /* already exists or not ready */ }
 }
-try { ensureNextTermColumn(); } catch(e) {}
+ensureNextTermColumn().catch(()=>{});
 
 exports.get = async (req, res) => {
   try {
