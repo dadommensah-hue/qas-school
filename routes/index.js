@@ -47,6 +47,8 @@ router.get('/students/class/:class', authMiddleware, students.byClass);
 router.get('/students/:id', authMiddleware, students.get);
 router.put('/students/:id', authMiddleware, students.update);
 router.delete('/students/:id', authMiddleware, adminOnly, students.delete);
+router.put('/students/:id/reset-password', authMiddleware, adminOnly, students.resetPassword);
+router.put('/students/:id/photo', authMiddleware, students.uploadPhoto);
 
 // ── TEACHERS ──
 router.get('/teachers', authMiddleware, teachers.list);
@@ -59,6 +61,7 @@ router.put('/teachers/:id', authMiddleware, adminOnly, teachers.update);
 router.delete('/teachers/:id', authMiddleware, adminOnly, teachers.delete);
 router.put('/teachers/:id/subjects', authMiddleware, adminOnly, teachers.assignSubjects);
 router.post('/teachers/:id/assign-class', authMiddleware, adminOnly, teachers.assignClass);
+router.put('/teachers/:id/reset-password', authMiddleware, adminOnly, teachers.resetPassword);
 
 // ── ATTENDANCE ──
 router.post('/attendance', authMiddleware, attendance.mark);

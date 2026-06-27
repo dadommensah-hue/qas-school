@@ -117,3 +117,25 @@ exports.getByClass = async (req, res) => {
     res.json(students);
   } catch (e) { res.status(500).json({ error: e.message }); }
 };
+
+exports.stats = async (req, res) => {
+  try {
+    const total = await get("SELECT COUNT(*) as c FROM students WHERE status='active'");
+    const boarding = await get("SELECT COUNT(*) as c FROM students WHERE status='active' AND student_type='boarding'");
+    const day = await get("SELECT COUNT(*) as c FROM students WHERE status='active' AND student_type='day'");
+    const byClass = await query("SELECT class, COUNT(*) as count FROM students WHERE status='active' GROUP BY class ORDER BY class");
+    res.json({
+      total: parseInt(String(total?.c||0)),
+      boarding: parseInt(String(boarding?.c||0)),
+      day: parseInt(String(day?.c||0)),
+      byClass
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+};
+
+exports.byClass = async (req, res) => {
+  try {
+    const students = await query("SELECT id,student_id,full_name,class,gender,student_type,status FROM students WHERE class=? AND status='active' ORDER BY full_name", [req.params.class]);
+    res.json(students);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+};

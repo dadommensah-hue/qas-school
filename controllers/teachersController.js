@@ -111,3 +111,34 @@ exports.resetPassword = async (req, res) => {
     res.json({ message: `Password reset to: ${pw}` });
   } catch (e) { res.status(500).json({ error: e.message }); }
 };
+
+exports.getClassAssignments = async (req, res) => {
+  try {
+    const rows = await query(`SELECT tca.id, tca.assigned_class, t.full_name, t.teacher_id 
+      FROM teacher_class_assignments tca 
+      JOIN teachers t ON t.id=tca.teacher_id ORDER BY tca.assigned_class`);
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+};
+
+exports.getMyClasses = async (req, res) => {
+  try {
+    const rows = await query("SELECT assigned_class FROM teacher_class_assignments WHERE teacher_id=?", [req.user.id]);
+    res.json(rows.map(r => r.assigned_class));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+};
+
+exports.removeClassAssignment = async (req, res) => {
+  try {
+    await run("DELETE FROM teacher_class_assignments WHERE id=?", [req.params.id]);
+    res.json({ message: 'Assignment removed' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+};
+
+exports.assignClass = async (req, res) => {
+  try {
+    const { assigned_class } = req.body;
+    await run("INSERT OR IGNORE INTO teacher_class_assignments (teacher_id,assigned_class) VALUES (?,?)", [req.params.id, assigned_class]);
+    res.json({ message: 'Class assigned' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+};
