@@ -146,13 +146,50 @@ router.post('/grades/approve', authMiddleware, adminOnly, (req, res) => {
 });
 
 // ── APPROVED TERM (check which term is approved for a class) ──
-router.get('/approved-term/:class', authMiddleware, (req, res) => {
+router.get('/approved-term/:class', authMiddleware, async (req, res) => {
   const { query: q } = require('../database');
   try {
     const cls = req.params.class;
     const academic_year = req.query.academic_year || '2024/2025';
-    const rows = q("SELECT term, exam_type FROM approved_terms WHERE class=? AND academic_year=? ORDER BY id DESC", [cls, academic_year]);
+    const rows = await q("SELECT term, exam_type FROM approved_terms WHERE class=? AND academic_year=? ORDER BY id DESC", [cls, academic_year]);
     res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── AI PROXY ROUTE (avoids CORS issues calling Anthropic from browser) ──
+router.post('/ai/analyze', authMiddleware, async (req, res) => {
+  try {
+    const { prompt, max_tokens } = req.body;
+    if (!prompt) return res.status(400).json({ error: 'Prompt required' });
+    const https = require('https');
+    const body = JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: max_tokens || 1800,
+      messages: [{ role: 'user', content: prompt }]
+    });
+    const options = {
+      hostname: 'api.anthropic.com',
+      path: '/v1/messages',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'anthropic-version': '2023-06-01',
+        'x-api-key': process.env.ANTHROPIC_API_KEY || ''
+      }
+    };
+    const proxyReq = https.request(options, (proxyRes) => {
+      let data = '';
+      proxyRes.on('data', chunk => { data += chunk; });
+      proxyRes.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          res.json(parsed);
+        } catch(e) { res.status(500).json({ error: 'Invalid response from AI' }); }
+      });
+    });
+    proxyReq.on('error', (e) => res.status(500).json({ error: e.message }));
+    proxyReq.write(body);
+    proxyReq.end();
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

@@ -3376,9 +3376,9 @@ Structure the report with emoji headings:
 Use actual student names and scores. Professional, constructive, encouraging tone. 700–1000 words.`;
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1800, messages:[{role:'user',content:prompt}] })
+    const res = await fetch('/api/ai/analyze', {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${TOKEN}`},
+      body:JSON.stringify({ prompt, max_tokens:1800 })
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error.message);
@@ -3470,9 +3470,9 @@ Motivation
 Use the student's actual name throughout. Be specific, warm, professional, and constructive. 400-600 words.`;
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1200, messages:[{role:'user',content:prompt}] })
+    const res = await fetch('/api/ai/analyze', {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${TOKEN}`},
+      body:JSON.stringify({ prompt, max_tokens:1200 })
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error.message);

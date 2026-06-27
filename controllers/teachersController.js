@@ -1,10 +1,29 @@
 const bcrypt = require('bcryptjs');
 const { query, run, get } = require('../database');
 
+function safeStr(v) { return (v === undefined || v === null) ? '' : String(v); }
+function safePhoto(v) {
+  if (!v || typeof v !== 'string' || v.length < 10) return null;
+  if (v.length > 500000) return null;
+  return v;
+}
+
+async function nextTeacherId() {
+  const r = await get("SELECT teacher_id FROM teachers ORDER BY id DESC LIMIT 1");
+  let num = 0;
+  if (r && r.teacher_id) {
+    const parts = String(r.teacher_id).split('-');
+    num = parseInt(parts[parts.length - 1]) || 0;
+  }
+  num++;
+  return `QAS-TCH-${String(num).padStart(3,'0')}`;
+}
+
 exports.list = async (req, res) => {
   try {
-    const teachers = await query(`SELECT t.*, GROUP_CONCAT(DISTINCT ts.subject) as assigned_subjects 
-      FROM teachers t LEFT JOIN teacher_subjects ts ON t.id=ts.teacher_id 
+    const teachers = await query(`SELECT t.id,t.teacher_id,t.full_name,t.gender,t.phone,t.email,t.subject_specialization,t.qualification,t.status,t.username,t.profile_photo,
+      GROUP_CONCAT(DISTINCT ts.subject) as assigned_subjects
+      FROM teachers t LEFT JOIN teacher_subjects ts ON t.id=ts.teacher_id
       GROUP BY t.id ORDER BY t.full_name`);
     res.json(teachers);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -13,44 +32,50 @@ exports.list = async (req, res) => {
 exports.create = async (req, res) => {
   try {
     const { full_name, gender, phone, email, subject_specialization, qualification, profile_photo } = req.body;
-    if (!full_name) return res.status(400).json({ error: 'Full name required' });
-    const c = await get("SELECT COUNT(*) as c FROM teachers").c;
-    const teacherId = `QAS-TCH-${String(c+1).padStart(3,'0')}`;
-    const username = teacherId.toLowerCase().replace(/-/g,'');
+    if (!full_name) return res.status(400).json({ error: 'Full name is required' });
+    const teacher_id = await nextTeacherId();
+    // Generate unique username - add timestamp suffix if needed
+    let username = teacher_id.toLowerCase().replace(/-/g,'');
+    const existing = await get("SELECT id FROM teachers WHERE username=?", [username]);
+    if (existing) username = username + Date.now().toString().slice(-4);
     const password = await bcrypt.hash('teacher123', 10);
-    await run(`INSERT INTO teachers (teacher_id,full_name,gender,phone,email,subject_specialization,qualification,profile_photo,username,password) VALUES (?,?,?,?,?,?,?,?,?,?)`,
-      [teacherId, full_name, gender||'Male', phone||'', email||'', subject_specialization||'', qualification||'', profile_photo||null, username, password]);
-    res.json({ message: 'Teacher registered', teacher_id: teacherId, username, default_password: 'teacher123' });
+    const photo = safePhoto(profile_photo);
+    await run(`INSERT INTO teachers (teacher_id,full_name,gender,phone,email,subject_specialization,qualification,profile_photo,username,password,status) VALUES (?,?,?,?,?,?,?,?,?,?,'active')`,
+      [teacher_id, full_name, safeStr(gender)||'Male', safeStr(phone), safeStr(email),
+       safeStr(subject_specialization), safeStr(qualification), photo, username, password]);
+    res.json({ message: 'Teacher registered', teacher_id, username, default_password: 'teacher123' });
   } catch (e) { res.status(500).json({ error: e.message }); }
 };
 
 exports.get = async (req, res) => {
   try {
     const t = await get("SELECT * FROM teachers WHERE id=?", [req.params.id]);
-    if (!t) return res.status(404).json({ error: 'Not found' });
+    if (!t) return res.status(404).json({ error: 'Teacher not found' });
     const subjects = await query("SELECT id,subject,class FROM teacher_subjects WHERE teacher_id=?", [req.params.id]);
-    res.json({ ...t, subjects });
+    const assignedClasses = await query("SELECT assigned_class FROM teacher_class_assignments WHERE teacher_id=?", [req.params.id]);
+    res.json({ ...t, subjects, assignedClasses: assignedClasses.map(r=>r.assigned_class) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 };
 
 exports.update = async (req, res) => {
   try {
     const { full_name, gender, phone, email, subject_specialization, qualification, status, profile_photo } = req.body;
-    const photo = (profile_photo && profile_photo.length > 10) ? profile_photo : null;
+    const photo = safePhoto(profile_photo);
     if (photo) {
       await run(`UPDATE teachers SET full_name=?,gender=?,phone=?,email=?,subject_specialization=?,qualification=?,status=?,profile_photo=? WHERE id=?`,
-        [full_name, gender, phone, email, subject_specialization, qualification, status||'active', photo, req.params.id]);
+        [safeStr(full_name), safeStr(gender), safeStr(phone), safeStr(email), safeStr(subject_specialization), safeStr(qualification), status||'active', photo, req.params.id]);
     } else {
       await run(`UPDATE teachers SET full_name=?,gender=?,phone=?,email=?,subject_specialization=?,qualification=?,status=? WHERE id=?`,
-        [full_name, gender, phone, email, subject_specialization, qualification, status||'active', req.params.id]);
+        [safeStr(full_name), safeStr(gender), safeStr(phone), safeStr(email), safeStr(subject_specialization), safeStr(qualification), status||'active', req.params.id]);
     }
-    res.json({ message: 'Updated' });
+    res.json({ message: 'Teacher updated' });
   } catch (e) { res.status(500).json({ error: e.message }); }
 };
 
 exports.delete = async (req, res) => {
   try {
     await run("DELETE FROM teacher_subjects WHERE teacher_id=?", [req.params.id]);
+    await run("DELETE FROM teacher_class_assignments WHERE teacher_id=?", [req.params.id]);
     await run("DELETE FROM teachers WHERE id=?", [req.params.id]);
     res.json({ message: 'Teacher deleted' });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -67,36 +92,22 @@ exports.assignSubjects = async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 };
 
-
-exports.assignClass = async (req, res) => {
+exports.assignClasses = async (req, res) => {
   try {
-    const { assigned_class } = req.body;
-    if (!assigned_class) return res.status(400).json({ error: 'Class required' });
-    await run("INSERT OR IGNORE INTO teacher_class_assignments (teacher_id, assigned_class) VALUES (?,?)", [req.params.id, assigned_class]);
-    res.json({ message: 'Class assigned' });
+    const { classes } = req.body;
+    await run("DELETE FROM teacher_class_assignments WHERE teacher_id=?", [req.params.id]);
+    for (const cls of (classes||[])) {
+      await run("INSERT OR IGNORE INTO teacher_class_assignments (teacher_id,assigned_class) VALUES (?,?)", [req.params.id, cls]);
+    }
+    res.json({ message: 'Classes assigned' });
   } catch (e) { res.status(500).json({ error: e.message }); }
 };
 
-exports.getClassAssignments = async (req, res) => {
+exports.resetPassword = async (req, res) => {
   try {
-    const assignments = await query(`SELECT tca.id, tca.assigned_class, t.full_name, t.teacher_id 
-      FROM teacher_class_assignments tca JOIN teachers t ON tca.teacher_id=t.id ORDER BY tca.assigned_class`);
-    res.json(assignments);
+    const pw = req.body.new_password || 'teacher123';
+    const hash = await bcrypt.hash(pw, 10);
+    await run("UPDATE teachers SET password=? WHERE id=?", [hash, req.params.id]);
+    res.json({ message: `Password reset to: ${pw}` });
   } catch (e) { res.status(500).json({ error: e.message }); }
-};
-
-exports.removeClassAssignment = async (req, res) => {
-  try {
-    await run("DELETE FROM teacher_class_assignments WHERE id=?", [req.params.id]);
-    res.json({ message: 'Removed' });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-};
-
-exports.getMyClasses = async (req, res) => {
-  try {
-    const userId = req.user?.id;
-    if (!userId) return res.json([]);
-    const classes = await query("SELECT * FROM teacher_class_assignments WHERE teacher_id=?", [userId]);
-    res.json(classes);
-  } catch (e) { res.json([]); }
 };
