@@ -156,40 +156,74 @@ router.get('/approved-term/:class', authMiddleware, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── AI PROXY ROUTE (avoids CORS issues calling Anthropic from browser) ──
+// ── AI PROXY ROUTE (uses Google Gemini free tier) ──
 router.post('/ai/analyze', authMiddleware, async (req, res) => {
   try {
     const { prompt, max_tokens } = req.body;
     if (!prompt) return res.status(400).json({ error: 'Prompt required' });
-    const https = require('https');
-    const body = JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: max_tokens || 1800,
-      messages: [{ role: 'user', content: prompt }]
-    });
-    const options = {
-      hostname: 'api.anthropic.com',
-      path: '/v1/messages',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01',
-        'x-api-key': process.env.ANTHROPIC_API_KEY || ''
-      }
-    };
-    const proxyReq = https.request(options, (proxyRes) => {
-      let data = '';
-      proxyRes.on('data', chunk => { data += chunk; });
-      proxyRes.on('end', () => {
-        try {
-          const parsed = JSON.parse(data);
-          res.json(parsed);
-        } catch(e) { res.status(500).json({ error: 'Invalid response from AI' }); }
+    const apiKey = process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY || '';
+    if (!apiKey) return res.status(500).json({ error: 'No AI API key configured. Please add GEMINI_API_KEY to environment variables.' });
+
+    // Use Gemini if key starts with AIza, otherwise use Anthropic
+    if (apiKey.startsWith('AIza')) {
+      const https = require('https');
+      const model = 'gemini-1.5-flash';
+      const body = JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: max_tokens || 1800, temperature: 0.7 }
       });
-    });
-    proxyReq.on('error', (e) => res.status(500).json({ error: e.message }));
-    proxyReq.write(body);
-    proxyReq.end();
+      const options = {
+        hostname: 'generativelanguage.googleapis.com',
+        path: `/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      };
+      const proxyReq = https.request(options, (proxyRes) => {
+        let data = '';
+        proxyRes.on('data', chunk => { data += chunk; });
+        proxyRes.on('end', () => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.error) return res.status(500).json({ error: parsed.error.message });
+            // Convert Gemini response to Anthropic-style format for frontend compatibility
+            const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated.';
+            res.json({ content: [{ type: 'text', text }] });
+          } catch(e) { res.status(500).json({ error: 'Invalid AI response: ' + e.message }); }
+        });
+      });
+      proxyReq.on('error', (e) => res.status(500).json({ error: e.message }));
+      proxyReq.write(body);
+      proxyReq.end();
+    } else {
+      // Anthropic fallback
+      const https = require('https');
+      const body = JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: max_tokens || 1800,
+        messages: [{ role: 'user', content: prompt }]
+      });
+      const options = {
+        hostname: 'api.anthropic.com',
+        path: '/v1/messages',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'anthropic-version': '2023-06-01',
+          'x-api-key': apiKey
+        }
+      };
+      const proxyReq = https.request(options, (proxyRes) => {
+        let data = '';
+        proxyRes.on('data', chunk => { data += chunk; });
+        proxyRes.on('end', () => {
+          try { res.json(JSON.parse(data)); }
+          catch(e) { res.status(500).json({ error: 'Invalid AI response' }); }
+        });
+      });
+      proxyReq.on('error', (e) => res.status(500).json({ error: e.message }));
+      proxyReq.write(body);
+      proxyReq.end();
+    }
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
