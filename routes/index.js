@@ -168,36 +168,45 @@ router.post('/ai/analyze', authMiddleware, async (req, res) => {
     if (!apiKey) return res.status(500).json({ error: 'No AI API key configured. Please add GEMINI_API_KEY to environment variables.' });
 
     // Use Gemini if key starts with AIza, otherwise use Anthropic
-    if (apiKey.startsWith('AIza') || apiKey.startsWith('AQ.') || apiKey.startsWith('AI')) {
+    // Always use Gemini if GEMINI_API_KEY is set
+    const geminiKey = process.env.GEMINI_API_KEY || '';
+    const anthropicKey = process.env.ANTHROPIC_API_KEY || '';
+    console.log('[AI] geminiKey present:', !!geminiKey, 'anthropicKey present:', !!anthropicKey);
+
+    if (geminiKey) {
       const https = require('https');
       const model = 'gemini-1.5-flash';
-      const body = JSON.stringify({
+      const bodyObj = {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { maxOutputTokens: max_tokens || 1800, temperature: 0.7 }
-      });
+      };
+      const bodyStr = JSON.stringify(bodyObj);
       const options = {
         hostname: 'generativelanguage.googleapis.com',
-        path: `/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        path: `/v1beta/models/${model}:generateContent?key=${geminiKey}`,
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) }
       };
       const proxyReq = https.request(options, (proxyRes) => {
         let data = '';
         proxyRes.on('data', chunk => { data += chunk; });
         proxyRes.on('end', () => {
           try {
+            console.log('[AI Gemini] status:', proxyRes.statusCode, 'body preview:', data.substring(0,300));
             const parsed = JSON.parse(data);
-            if (parsed.error) return res.status(500).json({ error: parsed.error.message });
-            // Convert Gemini response to Anthropic-style format for frontend compatibility
+            if (parsed.error) {
+              const msg = parsed.error.message || parsed.error.status || JSON.stringify(parsed.error);
+              return res.status(500).json({ error: 'Gemini error: ' + msg });
+            }
             const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated.';
             res.json({ content: [{ type: 'text', text }] });
-          } catch(e) { res.status(500).json({ error: 'Invalid AI response: ' + e.message }); }
+          } catch(e) { res.status(500).json({ error: 'AI parse error: ' + e.message + ' | ' + data.substring(0,300) }); }
         });
       });
-      proxyReq.on('error', (e) => res.status(500).json({ error: e.message }));
-      proxyReq.write(body);
+      proxyReq.on('error', (e) => { console.error('[AI Gemini] error:', e.message); res.status(500).json({ error: e.message }); });
+      proxyReq.write(bodyStr);
       proxyReq.end();
-    } else {
+    } else if (anthropicKey) {
       // Anthropic fallback
       const https = require('https');
       const body = JSON.stringify({

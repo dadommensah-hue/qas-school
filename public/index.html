@@ -383,7 +383,7 @@ const CLASSES = ['Basic 1','Basic 2','Basic 3','Basic 4','Basic 5','Basic 6','Ba
 const SUBJECTS = ['Career Technology','Computing','Creative Arts and Design','English Language','French',
   'Ghanaian Language','Integrated Science','Mathematics','Religious and Moral Education','Social Studies'];
 const SUBJECTS_B1_B6 = ['Computing','Creative Arts and Design','English Language','French',
-  'Ghanaian Language','Integrated Science','Mathematics','Religious and Moral Education','Social Studies'];
+  'Ghanaian Language','History','Integrated Science','Mathematics','Religious and Moral Education','Social Studies'];
 const MOCK_SUBJECTS = ['Career Technology','Computing','Creative Arts and Design','English Language','French',
   'Ghanaian Language','Integrated Science','Mathematics','Religious and Moral Education','Social Studies'];
 const SUBJECT_ABBR_MOCK = {
@@ -587,7 +587,7 @@ function buildSidebar() {
     <div class="nav-section">
       <div class="nav-section-title">My Portal</div>
       <div class="nav-item" onclick="showPage('studentDashboard')"><i class="fas fa-home"></i> My Dashboard</div>
-      <div class="nav-item" onclick="showPage('studentReportCard')"><i class="fas fa-file-alt"></i> \${USER&&USER.class==='Basic 9'?'Mock Examination Results':'My Report Card'}</div>
+      ${USER&&USER.class!=='Basic 9'?`<div class="nav-item" onclick="showPage('studentReportCard')"><i class="fas fa-file-alt"></i> My Report Card</div>`:''}
       \${USER&&USER.class!=='Basic 9'?'<div class="nav-item" onclick="showPage(\'studentMidtermResults\')"><i class="fas fa-clipboard-list"></i> Mid-Term Results</div>':''}
       <div class="nav-item" onclick="showPage('studentAttendance')"><i class="fas fa-calendar-check"></i> My Attendance</div>
       <div class="nav-item" onclick="showPage('studentLoginDetails')"><i class="fas fa-key"></i> Login Details</div>
@@ -686,7 +686,7 @@ function showPage(page) {
     attendance:'Attendance', grades:'Grades & Reports', classes:'Classes', adminConduct:'Conduct & Remarks',
     mockExam:'Mock Examination – Basic 9', midtermExam:'Mid-Term Examination (B1-B8)', syllabusAdmin:'Syllabus (Admin)',
     calendar:'Calendar & Events', sms:'SMS Centre', reports:'PDF Reports', settings:'Settings',
-    studentDashboard:'My Dashboard', studentReportCard:USER&&USER.class==='Basic 9'?'Mock Examination Results':'My Report Card', studentMidtermResults:'Mid-Term Results',
+    studentDashboard:'My Dashboard', studentReportCard:'My Report Card', studentMidtermResults:'Mid-Term Results',
     studentAttendance:'My Attendance', studentProfile:'My Profile', studentLoginDetails:'My Login Details',
     teacherDashboard:'My Dashboard', teacherClasses:'My Classes', teacherGrades:'Enter Grades', teacherConduct:'Conduct & Remarks',
     teacherAttendance:'Attendance', syllabusPortal:'Syllabus', teacherProfile:'My Profile',
@@ -2376,9 +2376,9 @@ async function studentDashboard() {
     </div>
   </div>
   <div class="stats-grid">
-    <div class="stat-card blue" style="cursor:pointer;" onclick="showPage('studentReportCard')">
+    <div class="stat-card blue" ${USER.class!=='Basic 9'?'style="cursor:pointer;" onclick="showPage(\'studentReportCard\')"':''}>
       <div class="stat-icon blue"><i class="fas fa-file-alt"></i></div>
-      <div class="stat-info"><div class="stat-value" id="sd_avg">—</div><div class="stat-label">${USER.class==='Basic 9'?'Aggregate':'My Average Score'}</div><div class="stat-change">Click to view ${USER.class==='Basic 9'?'mock results':'report'}</div></div>
+      <div class="stat-info"><div class="stat-value" id="sd_avg">—</div><div class="stat-label">${USER.class==='Basic 9'?'BECE Aggregate':'My Average Score'}</div><div class="stat-change">${USER.class==='Basic 9'?'Mock examination score':'Click to view report'}</div></div>
     </div>
     <div class="stat-card green" style="cursor:pointer;" onclick="showPage('studentAttendance')">
       <div class="stat-icon green"><i class="fas fa-calendar-check"></i></div>
@@ -2393,9 +2393,20 @@ async function studentDashboard() {
       <div class="stat-info"><div class="stat-value" id="sd_pos">—</div><div class="stat-label">Position in Class</div><div class="stat-change">Among classmates</div></div>
     </div>
   </div>
+  ${USER&&USER.class==='Basic 9'?`
+  <div class="card" style="margin-bottom:14px;">
+    <div class="card-body" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 16px;">
+      <span style="font-weight:700;color:#1e3a5f;font-size:14px;">📚 Mock Examination</span>
+      <label style="font-weight:600;color:var(--text-muted);margin:0;font-size:13px;">Select Mock:</label>
+      <select id="sd_mock_num_top" class="form-control" style="max-width:130px;font-size:13px;" onchange="reloadDashboardMock()">
+        ${[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].map(n=>`<option value="${n}">Mock ${n}</option>`).join('')}
+      </select>
+      <button class="btn btn-outline btn-sm" onclick="reloadDashboardMock()"><i class="fas fa-sync"></i></button>
+    </div>
+  </div>`:''}
   <div class="card" id="sd_subjects_card">
     <div class="card-header"><h3 id="sd_term_title">📚 My Subjects</h3>
-      <button class="btn btn-primary btn-sm" onclick="showPage('studentReportCard')"><i class="fas fa-file-alt"></i> ${USER&&USER.class==='Basic 9'?'Mock Examination Results':'Full Report'}</button>
+      ${USER&&USER.class!=='Basic 9'?'<button class="btn btn-primary btn-sm" onclick="showPage(\'studentReportCard\')"><i class="fas fa-file-alt"></i> My Report Card</button>':''}
     </div>
     <div class="card-body table-wrap" id="sd_subjects"><div class="loading-overlay"><div class="spinner"></div></div></div>
   </div>`;
@@ -2416,20 +2427,7 @@ async function studentDashboard() {
       }
     } catch(e2){}
     if (USER.class === 'Basic 9') {
-      dashTermLabel = 'Mock Examination';
-      // Fetch available mock numbers for Basic 9 dropdown
-      try {
-        const mockListData = await get('/mock/list');
-        const availableMocks = (mockListData||[1]).length ? mockListData : [1];
-        const mockDropdown = '<select id="sd_mock_num" class="form-control" style="max-width:150px;display:inline-block;margin-left:8px;" onchange="reloadDashboardMock()">'
-          + availableMocks.map(n=>`<option value="${n}">Mock ${n}</option>`).join('')
-          + '</select>';
-        const titleEl2 = document.getElementById('sd_term_title');
-        if (titleEl2) titleEl2.innerHTML = '🏆 Mock Examination ' + mockDropdown;
-      } catch(e2) {
-        const titleEl2 = document.getElementById('sd_term_title');
-        if (titleEl2) titleEl2.textContent = '🏆 Mock Examination';
-      }
+      dashTermLabel = 'Mock Examination – Basic 9';
     }
     const titleEl = document.getElementById('sd_term_title');
     if (titleEl) titleEl.textContent = '📚 ' + dashTermLabel;
@@ -2475,18 +2473,42 @@ async function studentDashboard() {
 
 // Reload mock results on dashboard when mock number dropdown changes
 async function reloadDashboardMock() {
-  const mockNum = document.getElementById('sd_mock_num')?.value || 1;
+  const mockNum = document.getElementById('sd_mock_num_top')?.value || document.getElementById('sd_mock_num')?.value || 1;
   try {
     const mockData = await get('/mock/student/'+USER.id+'?mock_number='+mockNum);
     document.getElementById('sd_avg').textContent = mockData.aggregate != null ? 'Agg: '+mockData.aggregate : '—';
     document.getElementById('sd_grade').textContent = mockData.aggregate != null ? (mockData.aggregate<=20?'Excellent':mockData.aggregate<=30?'Good':'Fair') : '—';
-    document.getElementById('sd_subjects').innerHTML = (mockData.scores||[]).length ?
-    '<table><thead><tr><th>Subject</th><th>Type</th><th>Mark (/100)</th><th>Grade</th></tr></thead><tbody>'
-    +(mockData.scores||[]).map(function(s,i){
-      const numGrade = gradeToNumeric(s.grade);
-      return '<tr style="background:'+(i%2===0?'#f9fafb':'#fff')+'"><td><strong>'+s.subject+'</strong></td><td>'+(CORE_SUBJECTS.includes(s.subject)?'Core':'Elective')+'</td><td style="font-weight:700;">'+s.score+'</td><td style="font-weight:700;">'+numGrade+'</td></tr>';
-    }).join('')
-    +'</tbody></table>' : '<div class="empty-state"><i class="fas fa-award"></i><h4>No mock results yet</h4></div>';
+    const mockNum2 = document.getElementById('sd_mock_num_top')?.value || 1;
+  if ((mockData.scores||[]).length) {
+    const core = (mockData.scores||[]).filter(s=>CORE_SUBJECTS.includes(s.subject));
+    const elec = (mockData.scores||[]).filter(s=>!CORE_SUBJECTS.includes(s.subject));
+    const aggColor = mockData.aggregate<=15?'#16a34a':mockData.aggregate<=24?'#d97706':mockData.aggregate<=29?'#ea580c':'#dc2626';
+    document.getElementById('sd_subjects').innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;padding:12px;background:#f8fafc;border-radius:8px;">
+        <div style="text-align:center;"><div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">BECE Aggregate</div><div style="font-size:28px;font-weight:700;color:${aggColor};">${mockData.aggregate??'—'}</div></div>
+        <div style="text-align:center;"><div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Best 4 Core</div><div style="font-size:13px;font-weight:600;">${(mockData.best4Core||[]).map(s=>s.subject.split(' ')[0]).join(', ')||'—'}</div></div>
+        <div style="text-align:center;"><div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Best 2 Elective</div><div style="font-size:13px;font-weight:600;">${(mockData.best2Elective||[]).map(s=>s.subject.split(' ')[0]).join(', ')||'—'}</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;padding:6px 10px;background:#e8f0fe;border-radius:6px;">📗 Core Subjects</div>
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead><tr style="background:#1e3a5f;color:#fff;"><th style="padding:7px 8px;text-align:left;">Subject</th><th style="padding:7px 8px;text-align:center;">Mark</th><th style="padding:7px 8px;text-align:center;">Grade</th></tr></thead>
+            <tbody>${core.map((s,i)=>{const ng=gradeToNumeric(s.grade);const used=(mockData.best4Core||[]).some(c=>c.subject===s.subject);return `<tr style="background:${i%2===0?'#f9fafb':'#fff'};${used?'font-weight:700;':''}"><td style="padding:7px 8px;">${s.subject}${used?' ★':''}</td><td style="padding:7px 8px;text-align:center;color:#2563eb;font-weight:700;">${s.score}</td><td style="padding:7px 8px;text-align:center;color:#dc2626;font-weight:700;">${ng}</td></tr>`;}).join('')}</tbody>
+          </table>
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;padding:6px 10px;background:#ede9fe;border-radius:6px;">📘 Elective Subjects</div>
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead><tr style="background:#7c3aed;color:#fff;"><th style="padding:7px 8px;text-align:left;">Subject</th><th style="padding:7px 8px;text-align:center;">Mark</th><th style="padding:7px 8px;text-align:center;">Grade</th></tr></thead>
+            <tbody>${elec.map((s,i)=>{const ng=gradeToNumeric(s.grade);const used=(mockData.best2Elective||[]).some(c=>c.subject===s.subject);return `<tr style="background:${i%2===0?'#f9fafb':'#fff'};${used?'font-weight:700;':''}"><td style="padding:7px 8px;">${s.subject}${used?' ★':''}</td><td style="padding:7px 8px;text-align:center;color:#2563eb;font-weight:700;">${s.score}</td><td style="padding:7px 8px;text-align:center;color:#dc2626;font-weight:700;">${ng}</td></tr>`;}).join('')}</tbody>
+          </table>
+        </div>
+      </div>
+      <p style="font-size:11px;color:#6b7280;margin-top:8px;text-align:center;">★ Used in aggregate | Grade: 1=80-100, 2=75-79, 3=70-74, 4=65-69, 5=60-64, 6=55-59, 7=50-54, 8=45-49, 9=0-44</p>`;
+  } else {
+    document.getElementById('sd_subjects').innerHTML = '<div class="empty-state"><i class="fas fa-award"></i><h4>No Mock '+mockNum2+' results yet</h4><p>Scores have not been entered for this mock examination.</p></div>';
+  }
   } catch(e) {
     document.getElementById('sd_subjects').innerHTML = '<div class="empty-state"><i class="fas fa-award"></i><h4>No mock results yet</h4></div>';
   }
@@ -2547,7 +2569,7 @@ async function loadStudentMidtermReport() {
       document.getElementById('mtReportContent').innerHTML = '<div class="card"><div class="card-body" style="text-align:center;padding:60px 20px;"><div style="font-size:60px;margin-bottom:16px;">⏳</div><h3>Mid-Term Report Not Yet Approved</h3><p style="color:var(--text-muted);">Your mid-term report for <strong>'+term+'</strong> has not been approved yet.</p></div></div>';
       return;
     }
-    var grades = (report.grades||[]).filter(function(g){return g.subject!=='History';});
+    var grades = (report.grades||[]);
     document.getElementById('mtReportContent').innerHTML =
     '<div class="card" style="max-width:860px;margin:0 auto;"><div class="card-body" style="padding:32px;">'
     +'<div style="text-align:center;margin-bottom:24px;border-bottom:3px double #1e3a5f;padding-bottom:20px;">'
@@ -2692,8 +2714,8 @@ async function loadStudentReport() {
       return;
     }
 
-    // Filter out History for all classes
-    const grades = (report.grades||[]).filter(g => g.subject !== 'History');
+    // Keep History for Basic 1-8, filter only for Basic 9 if needed
+    const grades = (report.grades||[]);
 
     document.getElementById('reportContent').innerHTML = `
     <div class="card" style="max-width:860px;margin:0 auto;">
