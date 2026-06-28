@@ -202,7 +202,7 @@ router.post('/ai/analyze', authMiddleware, async (req, res) => {
     if (groqKey) {
       // Use Groq (free, fast, llama3)
       const bodyStr = JSON.stringify({
-        model: 'llama3-8b-8192',
+        model: 'llama-3.1-8b-instant',
         messages: [{ role: 'user', content: String(prompt) }],
         max_tokens: parseInt(max_tokens) || 1800,
         temperature: 0.7
