@@ -202,7 +202,7 @@ router.post('/ai/analyze', authMiddleware, async (req, res) => {
       });
       const opts = {
         hostname: 'generativelanguage.googleapis.com',
-        path: `/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiKey}`,
+        path: `/v1/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) }
       };
