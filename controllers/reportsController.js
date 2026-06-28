@@ -13,31 +13,41 @@ function drawReportHeader(doc, termLabel) {
   const hasLogo = fs.existsSync(LOGO_PATH);
   const pageW = doc.page.width;
   const margin = 50;
+  let curY = doc.y;
 
+  // Logo ABOVE school name
   if (hasLogo) {
     try {
-      const logoX = (pageW - 70) / 2;
-      doc.image(LOGO_PATH, logoX, doc.y, { width: 70, height: 70 });
-      doc.moveDown(4.5);
+      const logoSize = 80;
+      const logoX = (pageW - logoSize) / 2;
+      doc.image(LOGO_PATH, logoX, curY, { width: logoSize, height: logoSize });
+      curY += logoSize + 6;
     } catch(e) {}
   }
 
-  // School name centered
-  doc.fontSize(16).font('Helvetica-Bold').fillColor('#1e3a5f')
-    .text(SCHOOL_NAME, margin, doc.y, { width: pageW - margin*2, align: 'center' });
-  doc.fontSize(10).font('Helvetica').fillColor('#374151')
-    .text(SCHOOL_ADDRESS, margin, doc.y + 2, { width: pageW - margin*2, align: 'center' });
-  doc.fontSize(8).font('Helvetica-Oblique').fillColor('#1d4ed8')
-    .text(SCHOOL_MOTTO, margin, doc.y + 2, { align: 'center', width: pageW - margin*2 });
+  // School name - bold, large
+  doc.fontSize(17).font('Helvetica-Bold').fillColor('#1e3a5f')
+    .text(SCHOOL_NAME, margin, curY, { width: pageW - margin*2, align: 'center' });
+  curY += 22;
 
-  doc.moveDown(0.3);
-  doc.moveTo(margin, doc.y).lineTo(pageW - margin, doc.y).strokeColor('#1e3a5f').lineWidth(2).stroke();
-  doc.moveDown(0.3);
+  // Address - bold, bigger
+  doc.fontSize(12).font('Helvetica-Bold').fillColor('#374151')
+    .text(SCHOOL_ADDRESS, margin, curY, { width: pageW - margin*2, align: 'center' });
+  curY += 16;
+
+  // Motto - bold, blue
+  doc.fontSize(10).font('Helvetica-Bold').fillColor('#1d4ed8')
+    .text(SCHOOL_MOTTO, margin, curY, { align: 'center', width: pageW - margin*2 });
+  curY += 14;
+
+  doc.moveTo(margin, curY).lineTo(pageW - margin, curY).strokeColor('#1e3a5f').lineWidth(2).stroke();
+  curY += 6;
   doc.fontSize(13).font('Helvetica-Bold').fillColor('#1e3a5f')
-    .text(`STUDENT REPORT CARD – ${termLabel}`, { align: 'center' });
-  doc.moveDown(0.3);
-  doc.moveTo(margin, doc.y).lineTo(pageW - margin, doc.y).strokeColor('#e5e7eb').lineWidth(1).stroke();
-  doc.moveDown(0.5);
+    .text(`STUDENT REPORT CARD – ${termLabel}`, margin, curY, { width: pageW - margin*2, align: 'center' });
+  curY += 18;
+  doc.moveTo(margin, curY).lineTo(pageW - margin, curY).strokeColor('#e5e7eb').lineWidth(1).stroke();
+  curY += 10;
+  doc.y = curY;
 }
 
 function gradeColor(grade) {
@@ -151,7 +161,7 @@ exports.studentReport = async (req, res) => {
     rowY += 44;
 
     // Conduct & Remarks section - load from DB
-    const conductData = get("SELECT * FROM report_conduct WHERE student_id=? AND term=? AND academic_year=? AND exam_type='end_of_term'",
+    const conductData = await get("SELECT * FROM report_conduct WHERE student_id=? AND term=? AND academic_year=? AND exam_type='end_of_term'",
       [id, termLabel, academic_year || '2024/2025']);
 
     // Promoted to / Next term - also check DB
@@ -190,7 +200,7 @@ exports.studentReport = async (req, res) => {
     });
 
     rowY += 85;
-    doc.fillColor('#9ca3af').fontSize(7.5)
+    doc.fillColor('#374151').fontSize(10).font('Helvetica-Bold')
       .text(`Generated: ${new Date().toLocaleDateString('en-GH',{day:'numeric',month:'long',year:'numeric'})} | ${SCHOOL_NAME}`, 50, rowY, { align: 'center', width: 495 });
 
     doc.end();

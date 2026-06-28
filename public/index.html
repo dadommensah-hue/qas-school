@@ -381,7 +381,7 @@ let charts = {};
 
 const CLASSES = ['Basic 1','Basic 2','Basic 3','Basic 4','Basic 5','Basic 6','Basic 7','Basic 8','Basic 9'];
 const SUBJECTS = ['Career Technology','Computing','Creative Arts and Design','English Language','French',
-  'Ghanaian Language','Integrated Science','Mathematics','Religious and Moral Education','Social Studies'];
+  'Ghanaian Language','History','Integrated Science','Mathematics','Religious and Moral Education','Social Studies'];
 const SUBJECTS_B1_B6 = ['Computing','Creative Arts and Design','English Language','French',
   'Ghanaian Language','History','Integrated Science','Mathematics','Religious and Moral Education','Social Studies'];
 const MOCK_SUBJECTS = ['Career Technology','Computing','Creative Arts and Design','English Language','French',
@@ -3426,11 +3426,13 @@ Use actual student names and scores. Professional, constructive, encouraging ton
       body:JSON.stringify({ prompt, max_tokens:1800 })
     });
     const data = await res.json();
-    if (data.error) throw new Error(data.error.message);
-    document.getElementById('aiReportText').textContent = data.content?.[0]?.text || 'No response.';
+    if (!res.ok || data.error) throw new Error(data.error || 'Server error: ' + res.status);
+    const text = data.content?.[0]?.text;
+    if (!text) throw new Error('AI returned empty response. Raw: ' + JSON.stringify(data).substring(0,200));
+    document.getElementById('aiReportText').textContent = text;
     document.getElementById('aiReportOut').style.display = 'block';
     document.getElementById('aiReportOut').scrollIntoView({behavior:'smooth',block:'start'});
-  } catch(e) { alert('AI analysis failed: ' + e.message); }
+  } catch(e) { alert('AI analysis failed: ' + (e.message||'Unknown error. Check Render logs.')); }
   finally {
     btn.disabled = false;
     btn.innerHTML = '🤖 Generate Class AI Report';
@@ -3520,11 +3522,13 @@ Use the student's actual name throughout. Be specific, warm, professional, and c
       body:JSON.stringify({ prompt, max_tokens:1200 })
     });
     const data = await res.json();
-    if (data.error) throw new Error(data.error.message);
-    document.getElementById('aiStudentText').textContent = data.content?.[0]?.text || 'No response.';
+    if (!res.ok || data.error) throw new Error(data.error || 'Server error: ' + res.status);
+    const text = data.content?.[0]?.text;
+    if (!text) throw new Error('AI returned empty response. Raw: ' + JSON.stringify(data).substring(0,200));
+    document.getElementById('aiStudentText').textContent = text;
     document.getElementById('aiStudentOut').style.display = 'block';
     document.getElementById('aiStudentOut').scrollIntoView({behavior:'smooth',block:'start'});
-  } catch(e) { alert('Student analysis failed: ' + e.message); }
+  } catch(e) { alert('Student analysis failed: ' + (e.message||'Unknown error. Check Render logs.')); }
   finally {
     btn.disabled = false;
     btn.innerHTML = '🎓 Generate Student Report';
