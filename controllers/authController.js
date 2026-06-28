@@ -11,10 +11,12 @@ exports.login = async (req, res) => {
     let user = null;
 
     if (portal === 'student') {
-      const s = await get("SELECT * FROM students WHERE username=? AND status='active'", [username]);
+      const s = await get("SELECT * FROM students WHERE username=?", [username]);
+      console.log('[LOGIN] student lookup:', username, '-> found:', !!s, 'status:', s?.status, 'pw_len:', String(s?.password||'').length);
       if (s) {
         const pw = String(s.password || '');
-        const match = pw ? await bcrypt.compare(String(password), pw) : false;
+        const match = pw.length > 0 ? await bcrypt.compare(String(password), pw) : false;
+        console.log('[LOGIN] student pw match:', match);
         if (match) {
           user = {
             id: Number(s.id), username: String(s.username), full_name: String(s.full_name),
@@ -25,10 +27,12 @@ exports.login = async (req, res) => {
       }
 
     } else if (portal === 'teacher') {
-      const t = await get("SELECT * FROM teachers WHERE username=? AND status='active'", [username]);
+      const t = await get("SELECT * FROM teachers WHERE username=?", [username]);
+      console.log('[LOGIN] teacher lookup:', username, '-> found:', !!t, 'status:', t?.status, 'pw_len:', String(t?.password||'').length);
       if (t) {
         const pw = String(t.password || '');
-        const match = pw ? await bcrypt.compare(String(password), pw) : false;
+        const match = pw.length > 0 ? await bcrypt.compare(String(password), pw) : false;
+        console.log('[LOGIN] teacher pw match:', match);
         if (match) {
           const subjects = await query("SELECT subject,class FROM teacher_subjects WHERE teacher_id=?", [t.id]);
           const classRows = await query("SELECT assigned_class FROM teacher_class_assignments WHERE teacher_id=?", [t.id]);
@@ -42,11 +46,12 @@ exports.login = async (req, res) => {
       }
 
     } else {
-      // Admin portal
       const u = await get("SELECT * FROM users WHERE username=?", [username]);
+      console.log('[LOGIN] admin lookup:', username, '-> found:', !!u, 'pw_len:', String(u?.password||'').length);
       if (u) {
         const pw = String(u.password || '');
-        const match = pw ? await bcrypt.compare(String(password), pw) : false;
+        const match = pw.length > 0 ? await bcrypt.compare(String(password), pw) : false;
+        console.log('[LOGIN] admin pw match:', match);
         if (match) {
           user = {
             id: Number(u.id), username: String(u.username), full_name: String(u.full_name || ''),
@@ -60,7 +65,7 @@ exports.login = async (req, res) => {
     const token = jwt.sign({ id: user.id, role: user.role, portal: portal || 'admin' }, SECRET, { expiresIn: '24h' });
     res.json({ token, user });
   } catch (e) {
-    console.error('Login error:', e.message);
+    console.error('[LOGIN ERROR]', e.message);
     res.status(500).json({ error: 'Login failed: ' + e.message });
   }
 };

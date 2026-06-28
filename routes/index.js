@@ -168,7 +168,7 @@ router.post('/ai/analyze', authMiddleware, async (req, res) => {
     if (!apiKey) return res.status(500).json({ error: 'No AI API key configured. Please add GEMINI_API_KEY to environment variables.' });
 
     // Use Gemini if key starts with AIza, otherwise use Anthropic
-    if (apiKey.startsWith('AIza')) {
+    if (apiKey.startsWith('AIza') || apiKey.startsWith('AQ.') || apiKey.startsWith('AI')) {
       const https = require('https');
       const model = 'gemini-1.5-flash';
       const body = JSON.stringify({

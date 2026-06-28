@@ -399,11 +399,14 @@ const TERMS = ['Term 1','Term 2','Term 3'];
 // ════════════════════════════════════════════
 // API HELPER
 // ════════════════════════════════════════════
-async function api(path, opts = {}) {
+async function api(path, opts = {}, skipLogout = false) {
   const headers = { 'Content-Type': 'application/json' };
   if (TOKEN) headers['Authorization'] = `Bearer ${TOKEN}`;
   const res = await fetch(API + path, { headers, ...opts, body: opts.body ? JSON.stringify(opts.body) : undefined });
-  if (res.status === 401) { logout(); return null; }
+  if (res.status === 401) {
+    if (!skipLogout) logout();
+    return null;
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Unknown error' }));
     throw new Error(err.error || 'Request failed');
@@ -441,12 +444,18 @@ async function login() {
   const errEl = document.getElementById('loginError');
   errEl.style.display = 'none';
   if (!username || !password) { errEl.style.display='block'; errEl.innerHTML='<i class="fas fa-exclamation-circle"></i> Please enter both username and password.'; return; }
-  // Try each portal type automatically
+  // Try each portal type - use direct fetch to avoid logout() being called on 401
   const portals = ['admin','teacher','student'];
   let success = false;
   for (const portal of portals) {
     try {
-      const data = await post('/auth/login', { username, password, portal });
+      const res = await fetch(API + '/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, portal })
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
       if (!data || !data.token) continue;
       TOKEN = data.token; USER = data.user; PORTAL = portal;
       localStorage.setItem('qas_token', TOKEN);
@@ -455,7 +464,7 @@ async function login() {
       toast('Welcome back, ' + (USER.full_name || USER.username) + '!', 'success');
       success = true;
       break;
-    } catch(e) { /* try next portal */ }
+    } catch(e) { console.log('Portal', portal, 'failed:', e.message); }
   }
   if (!success) {
     errEl.style.display = 'block';
