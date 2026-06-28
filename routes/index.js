@@ -183,26 +183,66 @@ router.get('/mock/check-approval', authMiddleware, async (req, res) => {
   } catch(e) { res.json({ approved: false }); }
 });
 
-// ── AI PROXY ROUTE (uses Google Gemini free tier) ──
+// ── AI PROXY ROUTE (uses Groq free tier - llama3) ──
 router.post('/ai/analyze', authMiddleware, async (req, res) => {
   try {
     const { prompt, max_tokens } = req.body;
     if (!prompt) return res.status(400).json({ error: 'Prompt required' });
+
+    const groqKey = process.env.GROQ_API_KEY || '';
     const geminiKey = process.env.GEMINI_API_KEY || '';
     const anthropicKey = process.env.ANTHROPIC_API_KEY || '';
-    if (!geminiKey && !anthropicKey) {
-      return res.status(500).json({ error: 'No AI API key configured. Add GEMINI_API_KEY to Render environment variables.' });
+
+    if (!groqKey && !geminiKey && !anthropicKey) {
+      return res.status(500).json({ error: 'No AI API key configured. Add GROQ_API_KEY to Render environment variables.' });
     }
+
     const https = require('https');
-    if (geminiKey) {
-      // Use Google Gemini
+
+    if (groqKey) {
+      // Use Groq (free, fast, llama3)
+      const bodyStr = JSON.stringify({
+        model: 'llama3-8b-8192',
+        messages: [{ role: 'user', content: String(prompt) }],
+        max_tokens: parseInt(max_tokens) || 1800,
+        temperature: 0.7
+      });
+      const opts = {
+        hostname: 'api.groq.com',
+        path: '/openai/v1/chat/completions',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${groqKey}`,
+          'Content-Length': Buffer.byteLength(bodyStr)
+        }
+      };
+      const proxyReq = https.request(opts, (proxyRes) => {
+        let raw = '';
+        proxyRes.on('data', c => { raw += c; });
+        proxyRes.on('end', () => {
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed.error) return res.status(500).json({ error: 'Groq: ' + (parsed.error.message || JSON.stringify(parsed.error)) });
+            const text = parsed.choices?.[0]?.message?.content;
+            if (!text) return res.status(500).json({ error: 'Groq empty response: ' + raw.substring(0, 200) });
+            res.json({ content: [{ type: 'text', text }] });
+          } catch(e) { res.status(500).json({ error: 'Parse error: ' + e.message }); }
+        });
+      });
+      proxyReq.on('error', e => res.status(500).json({ error: 'Network: ' + e.message }));
+      proxyReq.write(bodyStr);
+      proxyReq.end();
+
+    } else if (geminiKey) {
+      // Fallback: Gemini
       const bodyStr = JSON.stringify({
         contents: [{ parts: [{ text: String(prompt) }] }],
         generationConfig: { maxOutputTokens: parseInt(max_tokens) || 1800, temperature: 0.7 }
       });
       const opts = {
         hostname: 'generativelanguage.googleapis.com',
-        path: `/v1/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+        path: `/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) }
       };
@@ -214,16 +254,17 @@ router.post('/ai/analyze', authMiddleware, async (req, res) => {
             const parsed = JSON.parse(raw);
             if (parsed.error) return res.status(500).json({ error: 'Gemini: ' + (parsed.error.message || JSON.stringify(parsed.error)) });
             const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (!text) return res.status(500).json({ error: 'Gemini returned empty response. Status: ' + proxyRes.statusCode + ' Body: ' + raw.substring(0,300) });
+            if (!text) return res.status(500).json({ error: 'Gemini empty response' });
             res.json({ content: [{ type: 'text', text }] });
-          } catch(e) { res.status(500).json({ error: 'Parse error: ' + e.message + ' | ' + raw.substring(0,300) }); }
+          } catch(e) { res.status(500).json({ error: 'Parse error: ' + e.message }); }
         });
       });
-      proxyReq.on('error', e => res.status(500).json({ error: 'Network error: ' + e.message }));
+      proxyReq.on('error', e => res.status(500).json({ error: e.message }));
       proxyReq.write(bodyStr);
       proxyReq.end();
+
     } else {
-      // Use Anthropic Claude
+      // Fallback: Anthropic
       const bodyStr = JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: parseInt(max_tokens)||1800, messages: [{ role: 'user', content: String(prompt) }] });
       const opts = {
         hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST',
@@ -232,10 +273,7 @@ router.post('/ai/analyze', authMiddleware, async (req, res) => {
       const proxyReq = https.request(opts, (proxyRes) => {
         let raw = '';
         proxyRes.on('data', c => { raw += c; });
-        proxyRes.on('end', () => {
-          try { res.json(JSON.parse(raw)); }
-          catch(e) { res.status(500).json({ error: 'Parse error: ' + e.message }); }
-        });
+        proxyRes.on('end', () => { try { res.json(JSON.parse(raw)); } catch(e) { res.status(500).json({ error: e.message }); } });
       });
       proxyReq.on('error', e => res.status(500).json({ error: e.message }));
       proxyReq.write(bodyStr);
