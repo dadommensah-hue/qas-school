@@ -3598,8 +3598,7 @@ Student: ${USER.full_name}
 Class: Basic 9 | BECE Aggregate: ${mockData.aggregate ?? 'N/A'}
 
 Subject Scores:
-${sortedScores.map(s => `${s.subject}: ${s.score}/100 (Grade ${s.grade||'—'})`).join('
-')}
+${sortedScores.map(s => s.subject+': '+s.score+'/100 (Grade '+(s.grade||'—')+')').join(', ')}
 
 Best subjects: ${sortedScores.slice(0,3).map(s=>s.subject).join(', ')}
 Weakest subjects: ${sortedScores.slice(-3).map(s=>s.subject).join(', ')}
