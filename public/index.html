@@ -2387,14 +2387,23 @@ async function studentDashboard() {
       <div class="stat-icon green"><i class="fas fa-calendar-check"></i></div>
       <div class="stat-info"><div class="stat-value" id="sd_att">—</div><div class="stat-label">Attendance Rate</div><div class="stat-change">Click for details</div></div>
     </div>
+    ${USER.class==='Basic 9'?`
+    <div class="stat-card purple" style="cursor:pointer;" onclick="showAiSubjectInsights()">
+      <div class="stat-icon purple"><i class="fas fa-robot"></i></div>
+      <div class="stat-info"><div class="stat-value" id="sd_grade" style="font-size:14px;line-height:1.3;">—</div><div class="stat-label">Overall Average</div><div class="stat-change" style="color:#8b5cf6;font-weight:600;">🤖 AI Analytics – Subject Performance Insights</div></div>
+    </div>
+    <div class="stat-card cyan" style="cursor:pointer;" onclick="showAiAggregateInsights()">
+      <div class="stat-icon cyan"><i class="fas fa-brain"></i></div>
+      <div class="stat-info"><div class="stat-value" id="sd_pos" style="font-size:14px;line-height:1.3;">—</div><div class="stat-label">Performance</div><div class="stat-change" style="color:#0891b2;font-weight:600;">🤖 AI Analytics – Performance based on aggregate Insights</div></div>
+    </div>`:`
     <div class="stat-card purple">
       <div class="stat-icon purple"><i class="fas fa-graduation-cap"></i></div>
-      <div class="stat-info"><div class="stat-value" id="sd_grade">—</div><div class="stat-label">${USER.class==='Basic 9'?'Performance':'Overall Grade'}</div><div class="stat-change">${USER.class==='Basic 9'?'Based on aggregate':'Term 1 performance'}</div></div>
+      <div class="stat-info"><div class="stat-value" id="sd_grade">—</div><div class="stat-label">Overall Grade</div><div class="stat-change">Term 1 performance</div></div>
     </div>
     <div class="stat-card cyan">
       <div class="stat-icon cyan"><i class="fas fa-list-ol"></i></div>
       <div class="stat-info"><div class="stat-value" id="sd_pos">—</div><div class="stat-label">Position in Class</div><div class="stat-change">Among classmates</div></div>
-    </div>
+    </div>`}
   </div>
   ${USER&&USER.class==='Basic 9'?`
   <div class="card" style="margin-bottom:14px;">
@@ -2449,7 +2458,9 @@ async function studentDashboard() {
         const mockNum = document.getElementById('sd_mock_num')?.value || 1;
         const mockData = await get('/mock/student/'+USER.id+'?mock_number='+mockNum);
         document.getElementById('sd_avg').textContent = mockData.aggregate != null ? 'Agg: '+mockData.aggregate : '—';
-        document.getElementById('sd_grade').textContent = mockData.aggregate != null ? (mockData.aggregate<=20?'Excellent':mockData.aggregate<=30?'Good':'Fair') : '—';
+        const avg9 = (mockData.scores||[]).length ? Math.round((mockData.scores||[]).reduce((a,s)=>a+(parseFloat(s.score)||0),0)/(mockData.scores||[]).length) : 0;
+    document.getElementById('sd_grade').textContent = avg9 ? avg9+'% avg' : '—';
+    document.getElementById('sd_pos').textContent = mockData.aggregate != null ? (mockData.aggregate<=15?'Excellent':mockData.aggregate<=24?'Good':mockData.aggregate<=29?'Fair':'Needs Work') : '—';
         document.getElementById('sd_subjects').innerHTML = (mockData.scores||[]).length ?
         '<table><thead><tr><th>Subject</th><th>Type</th><th>Mark (/100)</th><th>Grade</th></tr></thead><tbody>'
         +(mockData.scores||[]).map(function(s,i){
@@ -2477,8 +2488,10 @@ async function studentDashboard() {
 // Reload mock results on dashboard when mock number dropdown changes
 async function reloadDashboardMock() {
   const mockNum = document.getElementById('sd_mock_num_top')?.value || document.getElementById('sd_mock_num')?.value || 1;
+  window._myMockData = null; // reset cache on reload
   try {
     const mockData = await get('/mock/student/'+USER.id+'?mock_number='+mockNum);
+    window._myMockData = mockData; // cache for AI insights
     document.getElementById('sd_avg').textContent = mockData.aggregate != null ? 'Agg: '+mockData.aggregate : '—';
     document.getElementById('sd_grade').textContent = mockData.aggregate != null ? (mockData.aggregate<=20?'Excellent':mockData.aggregate<=30?'Good':'Fair') : '—';
     const mockNum2 = document.getElementById('sd_mock_num_top')?.value || 1;
@@ -3550,6 +3563,128 @@ async function approveMockResults() {
   }
 }
 
+// ── AI ANALYTICS FOR BASIC 9 DASHBOARD ──
+async function showAiSubjectInsights() {
+  if (!window._aiStudents || !window._aiStudents.length) {
+    // Load data first
+    const mockNum = document.getElementById('sd_mock_num_top')?.value || 1;
+    try {
+      const d = await get('/mock/student/'+USER.id+'?mock_number='+mockNum);
+      if (!d || !(d.scores||[]).length) { toast('No mock data available for AI analysis','error'); return; }
+      window._myMockData = d;
+    } catch(e) { toast('Failed to load data: '+e.message,'error'); return; }
+  }
+  const mockData = window._myMockData || {};
+  const scores = (mockData.scores||[]);
+  if (!scores.length) { toast('No scores available for analysis','error'); return; }
+
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  modal.innerHTML = `<div style="background:#fff;border-radius:16px;padding:24px;max-width:600px;width:90%;max-height:85vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 style="font-size:16px;font-weight:700;color:#1e3a5f;">🤖 AI Analytics – Subject Performance Insights</h3>
+      <button onclick="this.closest('div[style*=fixed]').remove()" style="border:none;background:none;font-size:20px;cursor:pointer;color:#6b7280;">✕</button>
+    </div>
+    <div id="aiSubjectInsightContent" style="font-size:14px;line-height:1.8;color:#374151;">
+      <div style="text-align:center;padding:30px;"><div style="display:inline-block;width:30px;height:30px;border:3px solid #6366f1;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;"></div><p style="margin-top:10px;color:#6b7280;">Generating AI insights...</p></div>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+
+  const sortedScores = [...scores].sort((a,b) => parseFloat(b.score)-parseFloat(a.score));
+  const prompt = `You are an academic advisor for a Ghanaian Basic 9 student preparing for BECE. Analyze this student's subject performance and give personalized insights.
+
+Student: ${USER.full_name}
+Class: Basic 9 | BECE Aggregate: ${mockData.aggregate ?? 'N/A'}
+
+Subject Scores:
+${sortedScores.map(s => `${s.subject}: ${s.score}/100 (Grade ${s.grade||'—'})`).join('
+')}
+
+Best subjects: ${sortedScores.slice(0,3).map(s=>s.subject).join(', ')}
+Weakest subjects: ${sortedScores.slice(-3).map(s=>s.subject).join(', ')}
+
+Write a warm, encouraging 250-word subject performance analysis with:
+1. **Subject Performance Summary** - brief overview
+2. **Strengths** - top performing subjects with specific praise
+3. **Areas Needing Attention** - weak subjects with specific study tips
+4. **Study Recommendations** - 3 practical daily study tips
+Keep the tone motivating and use the student's name.`;
+
+  try {
+    const res = await fetch('/api/ai/analyze', {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${TOKEN}`},
+      body: JSON.stringify({ prompt, max_tokens: 600 })
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || 'Server error');
+    document.getElementById('aiSubjectInsightContent').style.whiteSpace = 'pre-wrap';
+    document.getElementById('aiSubjectInsightContent').textContent = data.content?.[0]?.text || 'No response.';
+  } catch(e) {
+    document.getElementById('aiSubjectInsightContent').innerHTML = `<p style="color:red;">Analysis failed: ${e.message}</p>`;
+  }
+}
+
+async function showAiAggregateInsights() {
+  const mockNum = document.getElementById('sd_mock_num_top')?.value || 1;
+  let mockData = window._myMockData;
+  if (!mockData) {
+    try {
+      mockData = await get('/mock/student/'+USER.id+'?mock_number='+mockNum);
+      window._myMockData = mockData;
+    } catch(e) { toast('Failed to load data: '+e.message,'error'); return; }
+  }
+
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  modal.innerHTML = `<div style="background:#fff;border-radius:16px;padding:24px;max-width:600px;width:90%;max-height:85vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 style="font-size:16px;font-weight:700;color:#1e3a5f;">🤖 AI Analytics – Performance based on aggregate Insights</h3>
+      <button onclick="this.closest('div[style*=fixed]').remove()" style="border:none;background:none;font-size:20px;cursor:pointer;color:#6b7280;">✕</button>
+    </div>
+    <div id="aiAggInsightContent" style="font-size:14px;line-height:1.8;color:#374151;">
+      <div style="text-align:center;padding:30px;"><div style="display:inline-block;width:30px;height:30px;border:3px solid #0891b2;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;"></div><p style="margin-top:10px;color:#6b7280;">Generating AI insights...</p></div>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+
+  const agg = mockData.aggregate ?? null;
+  const aggColor = agg<=15?'Excellent':agg<=24?'Good':agg<=29?'Fair':'Needs Improvement';
+  const best4 = (mockData.best4Core||[]).map(s=>`${s.subject}: ${s.score} (Grade ${s.grade})`).join(', ');
+  const best2 = (mockData.best2Elective||[]).map(s=>`${s.subject}: ${s.score} (Grade ${s.grade})`).join(', ');
+
+  const prompt = `You are a BECE academic counselor for a Ghanaian school. Analyze this Basic 9 student's aggregate performance and give predictions and recommendations.
+
+Student: ${USER.full_name}
+Current BECE Aggregate: ${agg ?? 'N/A'} (${aggColor})
+Best 4 Core Subjects used: ${best4 || 'N/A'}
+Best 2 Elective Subjects used: ${best2 || 'N/A'}
+Mock Examination: Mock ${mockNum}
+
+BECE Aggregate Scale: 6-15 = Excellent, 16-24 = Good, 25-29 = Fair, 30-54 = Needs Improvement
+
+Write a 300-word personalized aggregate performance analysis with:
+1. **Current Performance Assessment** - what the aggregate means for BECE
+2. **BECE Prediction** - expected aggregate range if trends continue
+3. **Key Subjects for Improvement** - which subjects to focus on to lower aggregate
+4. **Action Plan** - 3 specific steps to improve before BECE
+5. **Motivation** - one powerful closing encouragement
+
+Use the student's name and be specific about their aggregate number. Keep tone warm and professional.`;
+
+  try {
+    const res = await fetch('/api/ai/analyze', {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${TOKEN}`},
+      body: JSON.stringify({ prompt, max_tokens: 700 })
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || 'Server error');
+    document.getElementById('aiAggInsightContent').style.whiteSpace = 'pre-wrap';
+    document.getElementById('aiAggInsightContent').textContent = data.content?.[0]?.text || 'No response.';
+  } catch(e) {
+    document.getElementById('aiAggInsightContent').innerHTML = `<p style="color:red;">Analysis failed: ${e.message}</p>`;
+  }
+}
 </script>
 </body>
 </html>
