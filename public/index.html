@@ -1616,7 +1616,10 @@ async function loadMockEntry() {
     if (!students.length) { el.innerHTML='<div class="empty-state"><i class="fas fa-users"></i><h4>No students in Basic 9</h4></div>'; return; }
     el.innerHTML = `
     <div class="card"><div class="card-header"><h3>✏️ Enter MOCK ${mockNum} Scores – Basic 9</h3>
-      <button class="btn btn-primary btn-sm" onclick="saveMockScores()"><i class="fas fa-save"></i> Save All Scores</button></div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-primary btn-sm" onclick="saveMockScores()"><i class="fas fa-save"></i> Save All Scores</button>
+        ${USER&&USER.role==='admin'?`<button class="btn btn-sm" id="approveMockBtn" onclick="approveMockResults()" style="background:#16a34a;color:#fff;border-color:#16a34a;"><i class="fas fa-check-circle"></i> Approve MOCK ${mockNum} Results</button>`:''}
+      </div></div>
     <div class="card-body table-wrap">
       <table id="mockEntryTable">
         <thead><tr><th>Student</th>${MOCK_SUBJECTS.map(s=>`<th style="min-width:80px;font-size:11px;">${s}<br/><small style="font-weight:400;font-size:9px;color:#94a3b8;">${CORE_SUBJECTS.includes(s)?'Core':'Elective'}</small></th>`).join('')}</tr></thead>
@@ -2640,10 +2643,21 @@ function rcTab(btn, sectionId) {
 async function loadStudentMockResults() {
   const el = document.getElementById('mockResultsStudent');
   if (!el) return;
-  // Get selected mock number from dropdown (if exists), else show selected mock only
   const selMock = parseInt(document.getElementById('mockNumSel')?.value || 1);
   el.innerHTML = `<div class="loading-overlay"><div class="spinner"></div></div>`;
   try {
+    // Check if this mock is approved before showing
+    try {
+      const approval = await get(`/mock/check-approval?mock_number=${selMock}&class=Basic 9`);
+      if (!approval || !approval.approved) {
+        el.innerHTML = `<div class="card"><div class="card-body" style="text-align:center;padding:60px 20px;">
+          <div style="font-size:60px;margin-bottom:16px;">⏳</div>
+          <h3 style="font-size:20px;margin-bottom:8px;">Results Not Yet Released</h3>
+          <p style="color:var(--text-muted);font-size:15px;">Mock ${selMock} results have not been approved by the school administration yet.<br>Please check back later or contact your class teacher.</p>
+        </div></div>`;
+        return;
+      }
+    } catch(e2) { /* approval check failed, show results anyway */ }
     const d = await get(`/mock/student/${USER.id}?mock_number=${selMock}`);
     if (!d || !(d.scores||[]).length) {
       el.innerHTML = `<div class="empty-state"><i class="fas fa-award"></i><h4>No Results for Mock ${selMock}</h4><p>Scores for this mock have not been entered yet. Try selecting a different mock number above.</p></div>`;
@@ -3516,6 +3530,22 @@ Use the student's actual name throughout. Be specific, warm, professional, and c
     btn.innerHTML = '🎓 Generate Student Report';
   }
 }
+// ── MOCK APPROVAL SYSTEM ──
+async function approveMockResults() {
+  const mockNum = currentMockNumber || 1;
+  const btn = document.getElementById('approveMockBtn');
+  if (!confirm(`Approve MOCK ${mockNum} results? Students will be able to view their results after approval.`)) return;
+  try {
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Approving...'; }
+    await post('/mock/approve', { mock_number: mockNum, class: 'Basic 9', academic_year: '2024/2025' });
+    toast(`MOCK ${mockNum} results approved! Basic 9 students can now view their results.`, 'success');
+    if (btn) { btn.innerHTML = `<i class="fas fa-check-circle"></i> ✅ MOCK ${mockNum} Approved`; btn.style.background = '#15803d'; }
+  } catch(e) {
+    toast('Approval failed: ' + e.message, 'error');
+    if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fas fa-check-circle"></i> Approve MOCK ${mockNum} Results`; }
+  }
+}
+
 </script>
 </body>
 </html>

@@ -50,22 +50,27 @@ exports.studentReport = async (req, res) => {
     const { id } = req.params;
     const { term, academic_year, next_term_begins, promoted_to } = req.query;
     const termLabel = term || 'Term 1';
-    const student = get("SELECT * FROM students WHERE id=?", [id]);
+    const student = await get("SELECT * FROM students WHERE id=?", [id]);
     if (!student) return res.status(404).json({ error: 'Student not found' });
 
     // Get grades and class-wide data for position
-    const grades = query("SELECT * FROM grades WHERE student_id=? AND term=? ORDER BY subject", [id, termLabel]);
-    const att = get("SELECT COUNT(*) as total, COUNT(CASE WHEN status='present' THEN 1 END) as present FROM attendance WHERE student_id=? AND term=?", [id, termLabel]);
+    let grades = await query("SELECT * FROM grades WHERE student_id=? AND term=? ORDER BY subject", [id, termLabel]);
+    // Include History for Basic 1-8
+    if (student.class !== 'Basic 9') {
+      // keep all subjects including History
+    }
+    const att = await get("SELECT COUNT(*) as total, COUNT(CASE WHEN status='present' THEN 1 END) as present FROM attendance WHERE student_id=? AND term=?", [id, termLabel]);
 
     // Total enrollment in class
-    const totalEnrollment = get("SELECT COUNT(*) as count FROM students WHERE class=? AND status='active'", [student.class]).count;
+    const enrollRow = await get("SELECT COUNT(*) as count FROM students WHERE class=? AND status='active'", [student.class]);
+    const totalEnrollment = parseInt(String(enrollRow?.count||0));
 
-    // Position in class: compute avg for each student in class for this term
-    const classStudents = query(`SELECT s.id, AVG(g.class_score+g.exam_score) as avg_score
+    // Position in class
+    const classStudents = await query(`SELECT s.id, AVG(g.class_score+g.exam_score) as avg_score
       FROM students s JOIN grades g ON s.id=g.student_id
       WHERE s.class=? AND g.term=? AND s.status='active' GROUP BY s.id ORDER BY avg_score DESC`,
       [student.class, termLabel]);
-    const pos = classStudents.findIndex(s => s.id == id);
+    const pos = Array.isArray(classStudents) ? classStudents.findIndex(s => String(s.id) === String(id)) : -1;
     const position = pos >= 0 ? pos + 1 : '—';
 
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
@@ -107,7 +112,7 @@ exports.studentReport = async (req, res) => {
     let totalScore = 0;
 
     grades.forEach((g, idx) => {
-      if (g.subject === 'History') return; // Remove History
+      if (g.subject === 'History' && student.class === 'Basic 9') return; // History only excluded for Basic 9
       const total = parseFloat(g.class_score||0) + parseFloat(g.exam_score||0);
       totalScore += total;
       const bg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';

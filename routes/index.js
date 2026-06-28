@@ -159,84 +159,89 @@ router.get('/approved-term/:class', authMiddleware, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── MOCK APPROVAL ROUTES ──
+router.post('/mock/approve', authMiddleware, adminOnly, async (req, res) => {
+  const { run, get } = require('../database');
+  try {
+    const { mock_number, class: cls, academic_year } = req.body;
+    await run(`INSERT OR REPLACE INTO approved_terms (class, term, exam_type, academic_year, approved_by)
+               VALUES (?, ?, ?, ?, ?)`,
+      [cls || 'Basic 9', `Mock ${mock_number}`, 'mock_exam', academic_year || '2024/2025', req.user?.id]);
+    res.json({ message: `Mock ${mock_number} approved successfully` });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/mock/check-approval', authMiddleware, async (req, res) => {
+  const { get } = require('../database');
+  try {
+    const { mock_number, class: cls } = req.query;
+    const row = await get(
+      `SELECT id FROM approved_terms WHERE class=? AND term=? AND exam_type='mock_exam'`,
+      [cls || 'Basic 9', `Mock ${mock_number}`]
+    );
+    res.json({ approved: !!row });
+  } catch(e) { res.json({ approved: false }); }
+});
+
 // ── AI PROXY ROUTE (uses Google Gemini free tier) ──
 router.post('/ai/analyze', authMiddleware, async (req, res) => {
   try {
     const { prompt, max_tokens } = req.body;
     if (!prompt) return res.status(400).json({ error: 'Prompt required' });
-    const apiKey = process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY || '';
-    if (!apiKey) return res.status(500).json({ error: 'No AI API key configured. Please add GEMINI_API_KEY to environment variables.' });
-
-    // Use Gemini if key starts with AIza, otherwise use Anthropic
-    // Always use Gemini if GEMINI_API_KEY is set
     const geminiKey = process.env.GEMINI_API_KEY || '';
     const anthropicKey = process.env.ANTHROPIC_API_KEY || '';
-    console.log('[AI] geminiKey present:', !!geminiKey, 'anthropicKey present:', !!anthropicKey);
-
+    if (!geminiKey && !anthropicKey) {
+      return res.status(500).json({ error: 'No AI API key configured. Add GEMINI_API_KEY to Render environment variables.' });
+    }
+    const https = require('https');
     if (geminiKey) {
-      const https = require('https');
-      const model = 'gemini-1.5-flash';
-      const bodyObj = {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: max_tokens || 1800, temperature: 0.7 }
-      };
-      const bodyStr = JSON.stringify(bodyObj);
-      const options = {
+      // Use Google Gemini
+      const bodyStr = JSON.stringify({
+        contents: [{ parts: [{ text: String(prompt) }] }],
+        generationConfig: { maxOutputTokens: parseInt(max_tokens) || 1800, temperature: 0.7 }
+      });
+      const opts = {
         hostname: 'generativelanguage.googleapis.com',
-        path: `/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+        path: `/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) }
       };
-      const proxyReq = https.request(options, (proxyRes) => {
-        let data = '';
-        proxyRes.on('data', chunk => { data += chunk; });
+      const proxyReq = https.request(opts, (proxyRes) => {
+        let raw = '';
+        proxyRes.on('data', c => { raw += c; });
         proxyRes.on('end', () => {
           try {
-            console.log('[AI Gemini] status:', proxyRes.statusCode, 'body preview:', data.substring(0,300));
-            const parsed = JSON.parse(data);
-            if (parsed.error) {
-              const msg = parsed.error.message || parsed.error.status || JSON.stringify(parsed.error);
-              return res.status(500).json({ error: 'Gemini error: ' + msg });
-            }
-            const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated.';
+            const parsed = JSON.parse(raw);
+            if (parsed.error) return res.status(500).json({ error: 'Gemini: ' + (parsed.error.message || JSON.stringify(parsed.error)) });
+            const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!text) return res.status(500).json({ error: 'Gemini returned empty response. Status: ' + proxyRes.statusCode + ' Body: ' + raw.substring(0,300) });
             res.json({ content: [{ type: 'text', text }] });
-          } catch(e) { res.status(500).json({ error: 'AI parse error: ' + e.message + ' | ' + data.substring(0,300) }); }
+          } catch(e) { res.status(500).json({ error: 'Parse error: ' + e.message + ' | ' + raw.substring(0,300) }); }
         });
       });
-      proxyReq.on('error', (e) => { console.error('[AI Gemini] error:', e.message); res.status(500).json({ error: e.message }); });
+      proxyReq.on('error', e => res.status(500).json({ error: 'Network error: ' + e.message }));
       proxyReq.write(bodyStr);
       proxyReq.end();
-    } else if (anthropicKey) {
-      // Anthropic fallback
-      const https = require('https');
-      const body = JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: max_tokens || 1800,
-        messages: [{ role: 'user', content: prompt }]
-      });
-      const options = {
-        hostname: 'api.anthropic.com',
-        path: '/v1/messages',
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'anthropic-version': '2023-06-01',
-          'x-api-key': apiKey
-        }
+    } else {
+      // Use Anthropic Claude
+      const bodyStr = JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: parseInt(max_tokens)||1800, messages: [{ role: 'user', content: String(prompt) }] });
+      const opts = {
+        hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', 'x-api-key': anthropicKey, 'Content-Length': Buffer.byteLength(bodyStr) }
       };
-      const proxyReq = https.request(options, (proxyRes) => {
-        let data = '';
-        proxyRes.on('data', chunk => { data += chunk; });
+      const proxyReq = https.request(opts, (proxyRes) => {
+        let raw = '';
+        proxyRes.on('data', c => { raw += c; });
         proxyRes.on('end', () => {
-          try { res.json(JSON.parse(data)); }
-          catch(e) { res.status(500).json({ error: 'Invalid AI response' }); }
+          try { res.json(JSON.parse(raw)); }
+          catch(e) { res.status(500).json({ error: 'Parse error: ' + e.message }); }
         });
       });
-      proxyReq.on('error', (e) => res.status(500).json({ error: e.message }));
-      proxyReq.write(body);
+      proxyReq.on('error', e => res.status(500).json({ error: e.message }));
+      proxyReq.write(bodyStr);
       proxyReq.end();
     }
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 module.exports = router;
