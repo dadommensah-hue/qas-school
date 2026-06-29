@@ -713,65 +713,112 @@ async function dashboard() {
   try {
     const d = await get('/analytics/dashboard');
     if (!d) return;
+    const ts = d.totalStudents||0, bs = d.boardingStudents||0, ds = d.dayStudents||0, tt = d.totalTeachers||0;
+    const ar = d.attendanceRate||0, tp = d.todayAttendance?.present||0, tot = d.todayAttendance?.total||0, avg = d.avgScore||0;
     document.getElementById('pageContent').innerHTML = `
-    <div class="stats-grid">
-      <div class="stat-card blue">
-        <div class="stat-icon blue"><i class="fas fa-user-graduate"></i></div>
-        <div class="stat-info"><div class="stat-value">${d.totalStudents}</div><div class="stat-label">Total Students</div><div class="stat-change">Active Enrolment</div></div>
+    <style>
+      .dash3d-card{border-radius:20px;padding:22px;color:#fff;position:relative;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.15);transition:transform .2s,box-shadow .2s;cursor:default;}
+      .dash3d-card:hover{transform:translateY(-4px) scale(1.02);box-shadow:0 18px 40px rgba(0,0,0,.22);}
+      .dash3d-card::before{content:'';position:absolute;top:-30px;right:-30px;width:100px;height:100px;background:rgba(255,255,255,.1);border-radius:50%;}
+      .dash3d-card::after{content:'';position:absolute;bottom:-20px;right:20px;width:60px;height:60px;background:rgba(255,255,255,.07);border-radius:50%;}
+      .dash3d-val{font-size:36px;font-weight:800;line-height:1;text-shadow:0 2px 8px rgba(0,0,0,.2);}
+      .dash3d-label{font-size:13px;font-weight:700;margin-top:6px;opacity:.95;}
+      .dash3d-sub{font-size:11px;opacity:.72;margin-top:2px;}
+      .chart3d-card{background:#fff;border-radius:20px;padding:20px;box-shadow:0 4px 24px rgba(0,0,0,.08);transition:box-shadow .2s;}
+      .chart3d-card:hover{box-shadow:0 8px 32px rgba(0,0,0,.14);}
+      .chart3d-title{font-size:14px;font-weight:700;color:#1e3a5f;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+      .chart3d-icon{width:34px;height:34px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;font-size:16px;}
+    </style>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;">
+      <div class="dash3d-card" style="background:linear-gradient(135deg,#1e40af,#3b82f6);">
+        <div class="dash3d-val">${ts}</div><div class="dash3d-label">Total Students</div><div class="dash3d-sub">Active Enrolment</div>
+        <div style="position:absolute;right:18px;top:18px;opacity:.3;font-size:40px;">👨‍🎓</div>
       </div>
-      <div class="stat-card teal">
-        <div class="stat-icon teal"><i class="fas fa-bed"></i></div>
-        <div class="stat-info"><div class="stat-value">${d.boardingStudents}</div><div class="stat-label">Boarding Students</div><div class="stat-change">Currently in residence</div></div>
+      <div class="dash3d-card" style="background:linear-gradient(135deg,#0e7490,#22d3ee);">
+        <div class="dash3d-val">${bs}</div><div class="dash3d-label">Boarding Students</div><div class="dash3d-sub">Currently in residence</div>
+        <div style="position:absolute;right:18px;top:18px;opacity:.3;font-size:40px;">🏠</div>
       </div>
-      <div class="stat-card amber">
-        <div class="stat-icon amber"><i class="fas fa-walking"></i></div>
-        <div class="stat-info"><div class="stat-value">${d.dayStudents}</div><div class="stat-label">Day Students</div><div class="stat-change">Day attendance</div></div>
+      <div class="dash3d-card" style="background:linear-gradient(135deg,#b45309,#f59e0b);">
+        <div class="dash3d-val">${ds}</div><div class="dash3d-label">Day Students</div><div class="dash3d-sub">Day attendance</div>
+        <div style="position:absolute;right:18px;top:18px;opacity:.3;font-size:40px;">🚶</div>
       </div>
-      <div class="stat-card green">
-        <div class="stat-icon green"><i class="fas fa-chalkboard-teacher"></i></div>
-        <div class="stat-info"><div class="stat-value">${d.totalTeachers||0}</div><div class="stat-label">Total Teachers</div><div class="stat-change">Active staff</div></div>
+      <div class="dash3d-card" style="background:linear-gradient(135deg,#166534,#22c55e);">
+        <div class="dash3d-val">${tt}</div><div class="dash3d-label">Total Teachers</div><div class="dash3d-sub">Active staff</div>
+        <div style="position:absolute;right:18px;top:18px;opacity:.3;font-size:40px;">👩‍🏫</div>
       </div>
-      <div class="stat-card purple">
-        <div class="stat-icon purple"><i class="fas fa-clipboard-check"></i></div>
-        <div class="stat-info"><div class="stat-value">${d.attendanceRate}%</div><div class="stat-label">Today's Attendance</div><div class="stat-change">${d.todayAttendance?.present||0}/${d.todayAttendance?.total||0} present</div></div>
+      <div class="dash3d-card" style="background:linear-gradient(135deg,#5b21b6,#a78bfa);">
+        <div class="dash3d-val">${ar}%</div><div class="dash3d-label">Today's Attendance</div><div class="dash3d-sub">${tp}/${tot} present</div>
+        <div style="position:absolute;right:18px;top:18px;opacity:.3;font-size:40px;">✅</div>
       </div>
-      <div class="stat-card cyan">
-        <div class="stat-icon cyan"><i class="fas fa-chart-line"></i></div>
-        <div class="stat-info"><div class="stat-value">${d.avgScore}%</div><div class="stat-label">Average Score (T1)</div><div class="stat-change">Academic performance</div></div>
+      <div class="dash3d-card" style="background:linear-gradient(135deg,#9d174d,#ec4899);">
+        <div class="dash3d-val">${avg}%</div><div class="dash3d-label">Average Score (T1)</div><div class="dash3d-sub">Academic performance</div>
+        <div style="position:absolute;right:18px;top:18px;opacity:.3;font-size:40px;">📈</div>
       </div>
     </div>
-    <div class="grid-2" style="margin-bottom:16px;">
-      <div class="card"><div class="card-header"><h3>📊 Weekly Attendance</h3></div>
-        <div class="card-body"><div class="chart-wrap"><canvas id="attChart"></canvas></div></div></div>
-      <div class="card"><div class="card-header"><h3>🏫 Enrolment by Class</h3></div>
-        <div class="card-body"><div class="chart-wrap"><canvas id="classChart"></canvas></div></div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+      <div class="chart3d-card">
+        <div class="chart3d-title"><span class="chart3d-icon" style="background:#eff6ff;">📊</span>Weekly Attendance</div>
+        <div style="position:relative;height:220px;"><canvas id="attChart"></canvas></div>
+      </div>
+      <div class="chart3d-card">
+        <div class="chart3d-title"><span class="chart3d-icon" style="background:#f0fdf4;">🏫</span>Enrolment by Class</div>
+        <div style="position:relative;height:220px;"><canvas id="classChart"></canvas></div>
+      </div>
     </div>
-    <div class="grid-2">
-      <div class="card"><div class="card-header"><h3>📅 Upcoming Events</h3>
-        <button class="btn btn-primary btn-sm" onclick="showPage('calendar')"><i class="fas fa-calendar"></i> All</button></div>
-        <div class="card-body" style="padding:10px;">
-          ${(d.upcomingEvents||[]).map(e=>`
-          <div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;background:#f8fafc;margin-bottom:6px;">
-            <div style="width:38px;height:38px;background:var(--primary-light);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;">${eventIcon(e.event_type)}</div>
-            <div style="flex:1;"><div style="font-weight:600;font-size:13px;">${e.title}</div>
-            <div style="font-size:11px;color:var(--text-muted);">${new Date(e.event_date).toLocaleDateString('en-GH',{day:'numeric',month:'short',year:'numeric'})}</div></div>
-          </div>`).join('')||'<div class="empty-state"><i class="fas fa-calendar"></i><h4>No upcoming events</h4></div>'}
-        </div></div>
-      <div class="card"><div class="card-header"><h3>📈 Grade Distribution</h3></div>
-        <div class="card-body"><div class="chart-wrap"><canvas id="gradeChart"></canvas></div></div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+      <div class="chart3d-card">
+        <div class="chart3d-title"><span class="chart3d-icon" style="background:#faf5ff;">📈</span>Grade Distribution</div>
+        <div style="position:relative;height:220px;"><canvas id="gradeChart"></canvas></div>
+      </div>
+      <div class="chart3d-card">
+        <div class="chart3d-title"><span class="chart3d-icon" style="background:#fff7ed;">🎓</span>Boarding vs Day Students</div>
+        <div style="position:relative;height:220px;"><canvas id="boardingChart"></canvas></div>
+      </div>
+    </div>
+    <div class="chart3d-card">
+      <div class="chart3d-title" style="justify-content:space-between;">
+        <span style="display:flex;align-items:center;gap:8px;"><span class="chart3d-icon" style="background:#eff6ff;">📅</span> Upcoming Events</span>
+        <button class="btn btn-primary btn-sm" onclick="showPage('calendar')"><i class="fas fa-calendar"></i> All Events</button>
+      </div>
+      ${(d.upcomingEvents||[]).map(e=>`
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:12px;background:linear-gradient(90deg,#f0f9ff,#fff);margin-bottom:8px;border-left:4px solid #2563eb;box-shadow:0 2px 8px rgba(0,0,0,.04);">
+        <div style="width:40px;height:40px;background:#eff6ff;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;">${eventIcon(e.event_type)}</div>
+        <div style="flex:1;"><div style="font-weight:600;font-size:13px;color:#1e3a5f;">${e.title}</div>
+        <div style="font-size:11px;color:#6b7280;">${new Date(e.event_date).toLocaleDateString('en-GH',{day:'numeric',month:'short',year:'numeric'})}</div></div>
+      </div>`).join('')||'<div style="text-align:center;padding:20px;color:#9ca3af;"><i class="fas fa-calendar" style="font-size:24px;display:block;margin-bottom:8px;"></i>No upcoming events</div>'}
     </div>`;
+
     setTimeout(() => {
-      destroyChart('att'); destroyChart('class'); destroyChart('grade');
+      destroyChart('att'); destroyChart('class'); destroyChart('grade'); destroyChart('boarding');
+      // 3D-style Weekly Attendance - Area Line
       const attLabels = (d.weeklyAttendance||[]).map(w=>new Date(w.date).toLocaleDateString('en-GH',{weekday:'short'}));
       const attData = (d.weeklyAttendance||[]).map(w=>w.total?((w.present/w.total)*100).toFixed(0):0);
-      charts.att = new Chart(document.getElementById('attChart'),{type:'line',data:{labels:attLabels,datasets:[{label:'Attendance %',data:attData,fill:true,backgroundColor:'rgba(37,99,235,.1)',borderColor:'#2563eb',tension:.4,pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%'}}}}});
-      charts.class = new Chart(document.getElementById('classChart'),{type:'bar',data:{labels:(d.byClass||[]).map(c=>c.class),datasets:[{label:'Students',data:(d.byClass||[]).map(c=>c.count),backgroundColor:'#2563eb',borderRadius:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}});
-      const gColors=['#16a34a','#2563eb','#d97706','#ea580c','#dc2626'];
-      charts.grade = new Chart(document.getElementById('gradeChart'),{type:'doughnut',data:{labels:(d.gradeDistribution||[]).map(g=>'Grade '+g.grade),datasets:[{data:(d.gradeDistribution||[]).map(g=>g.count),backgroundColor:gColors,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}},cutout:'60%'}});
+      const attCtx = document.getElementById('attChart');
+      if (attCtx) {
+        const g = attCtx.getContext('2d').createLinearGradient(0,0,0,220);
+        g.addColorStop(0,'rgba(59,130,246,0.5)'); g.addColorStop(1,'rgba(59,130,246,0.02)');
+        charts.att = new Chart(attCtx,{type:'line',data:{labels:attLabels,datasets:[{label:'Attendance %',data:attData,fill:true,backgroundColor:g,borderColor:'#3b82f6',borderWidth:3,tension:.4,pointRadius:6,pointBackgroundColor:'#1e40af',pointBorderColor:'#fff',pointBorderWidth:2,pointHoverRadius:8}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:v=>v.raw+'%'}}},scales:{y:{min:0,max:100,grid:{color:'rgba(0,0,0,.04)'},ticks:{callback:v=>v+'%',font:{size:11}}},horror:{grid:{display:false}}}}});
+      }
+      // 3D-style Enrolment Bar
+      const clsCtx = document.getElementById('classChart');
+      if (clsCtx) {
+        const cols = ['#3b82f6','#22c55e','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#ec4899','#14b8a6'];
+        charts.class = new Chart(clsCtx,{type:'bar',data:{labels:(d.byClass||[]).map(c=>c.class),datasets:[{label:'Students',data:(d.byClass||[]).map(c=>parseInt(String(c.count||0))),backgroundColor:cols,borderColor:cols.map(c=>c+'cc'),borderWidth:2,borderRadius:10,borderRadiusTopLeft:10,borderRadiusTopRight:10,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:v=>v.raw+' students'}}},scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{beginAtZero:true,grid:{color:'rgba(0,0,0,.04)'},ticks:{stepSize:1}}}}});
+      }
+      // 3D-style Grade Distribution Doughnut
+      const gradeCtx = document.getElementById('gradeChart');
+      if (gradeCtx) {
+        const gCols = ['#16a34a','#3b82f6','#f59e0b','#f97316','#ef4444','#8b5cf6','#06b6d4'];
+        charts.grade = new Chart(gradeCtx,{type:'doughnut',data:{labels:(d.gradeDistribution||[]).map(g=>'Grade '+g.grade),datasets:[{data:(d.gradeDistribution||[]).map(g=>g.count),backgroundColor:gCols,borderColor:'#fff',borderWidth:4,hoverOffset:20,hoverBorderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,cutout:'58%',plugins:{legend:{position:'bottom',labels:{font:{size:11,weight:'600'},padding:10,usePointStyle:true}},tooltip:{callbacks:{label:v=>`${v.label}: ${v.raw} students`}}}}});
+      }
+      // 3D-style Boarding vs Day Pie
+      const bCtx = document.getElementById('boardingChart');
+      if (bCtx) {
+        charts.boarding = new Chart(bCtx,{type:'pie',data:{labels:['Boarding','Day'],datasets:[{data:[bs,ds],backgroundColor:['rgba(14,116,144,.85)','rgba(180,83,9,.85)'],borderColor:['#0e7490','#b45309'],borderWidth:4,hoverOffset:16,hoverBorderWidth:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:13,weight:'700'},padding:16,usePointStyle:true}},tooltip:{callbacks:{label:v=>`${v.label}: ${v.raw} (${ts>0?((v.raw/ts)*100).toFixed(1):0}%)`}}}}});
+      }
     }, 100);
   } catch(e) { toast(e.message,'error'); }
 }
-
 function eventIcon(t){ return {exam:'📝',holiday:'🏖️',meeting:'🤝',sports:'⚽',ceremony:'🏆',general:'📌'}[t]||'📌'; }
 function eventBadge(t){ return {exam:'danger',holiday:'success',meeting:'info',sports:'purple',ceremony:'warning',general:'gray'}[t]||'gray'; }
 
@@ -1521,13 +1568,24 @@ async function mockExam() {
     </div></div>
   </div>
   <div id="studentAnalytics" style="display:none;">
-    <div class="card" style="margin-bottom:16px;"><div class="card-header"><h3>📊 Individual Student Analytics</h3></div>
-    <div class="card-body">
-      <div class="form-row" style="max-width:400px;margin-bottom:16px;">
-        <div class="form-group"><label>Select Student</label><select class="form-control" id="saStudentSel" onchange="loadStudentAnalytics()"></select></div>
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-header">
+        <h3>📊 Individual Student Analytics</h3>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <select class="form-control" id="saStudentSel" onchange="loadStudentAnalytics()" style="max-width:220px;font-size:13px;"></select>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-sm sa-tab-btn active" onclick="setSaTab(this,'saPerformance')" style="font-size:12px;">📊 Performance</button>
+            <button class="btn btn-sm sa-tab-btn" onclick="setSaTab(this,'saComparison')" style="font-size:12px;">📈 Mock Comparison</button>
+            <button class="btn btn-sm sa-tab-btn" onclick="setSaTab(this,'saAiReport')" style="font-size:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border-color:transparent;">🤖 AI Analysis</button>
+          </div>
+        </div>
       </div>
-      <div id="saContent"></div>
-    </div></div>
+      <div class="card-body">
+        <div id="saPerformance"><div class="empty-state"><i class="fas fa-user"></i><h4>Select a student above</h4></div></div>
+        <div id="saComparison" style="display:none;"><div class="empty-state"><i class="fas fa-chart-bar"></i><h4>Select a student to compare mocks</h4></div></div>
+        <div id="saAiReport" style="display:none;"><div class="empty-state"><i class="fas fa-robot"></i><h4>Select a student to generate AI report</h4></div></div>
+      </div>
+    </div>
   </div>
   <div id="mockAnalytics" style="display:none;">
     <div class="grid-2" style="margin-bottom:16px;">
@@ -2378,32 +2436,39 @@ async function studentDashboard() {
       <span class="portal-badge">${(USER.student_type||'day').charAt(0).toUpperCase()+(USER.student_type||'day').slice(1)} Student</span>
     </div>
   </div>
-  <div class="stats-grid">
-    <div class="stat-card blue" ${USER.class!=='Basic 9'?'style="cursor:pointer;" onclick="showPage(\'studentReportCard\')"':''}>
-      <div class="stat-icon blue"><i class="fas fa-file-alt"></i></div>
-      <div class="stat-info"><div class="stat-value" id="sd_avg">—</div><div class="stat-label">${USER.class==='Basic 9'?'BECE Aggregate':'My Average Score'}</div><div class="stat-change">${USER.class==='Basic 9'?'Mock examination score':'Click to view report'}</div></div>
+  <style>
+    .sd3d{border-radius:18px;padding:20px 22px;color:#fff;position:relative;overflow:hidden;box-shadow:0 8px 28px rgba(0,0,0,.14);transition:transform .2s,box-shadow .2s;margin-bottom:0;}
+    .sd3d:hover{transform:translateY(-3px);box-shadow:0 14px 36px rgba(0,0,0,.2);}
+    .sd3d::before{content:'';position:absolute;top:-20px;right:-20px;width:80px;height:80px;background:rgba(255,255,255,.1);border-radius:50%;}
+    .sd3d-val{font-size:34px;font-weight:800;line-height:1;text-shadow:0 2px 8px rgba(0,0,0,.18);}
+    .sd3d-label{font-size:13px;font-weight:700;margin-top:6px;opacity:.95;}
+    .sd3d-sub{font-size:11px;opacity:.7;margin-top:2px;}
+  </style>
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:18px;">
+    <div class="sd3d" style="background:linear-gradient(135deg,#1e40af,#3b82f6);${USER.class!=='Basic 9'?'cursor:pointer;':''}" ${USER.class!=='Basic 9'?'onclick="showPage(\'studentReportCard\')"':''}>
+      <div style="position:absolute;right:14px;top:14px;font-size:38px;opacity:.18;">📄</div>
+      <div class="sd3d-val" id="sd_avg">—</div>
+      <div class="sd3d-label">${USER.class==='Basic 9'?'BECE Aggregate':'My Average Score'}</div>
+      <div class="sd3d-sub">${USER.class==='Basic 9'?'Mock examination':'Click to view report'}</div>
     </div>
-    <div class="stat-card green" style="cursor:pointer;" onclick="showPage('studentAttendance')">
-      <div class="stat-icon green"><i class="fas fa-calendar-check"></i></div>
-      <div class="stat-info"><div class="stat-value" id="sd_att">—</div><div class="stat-label">Attendance Rate</div><div class="stat-change">Click for details</div></div>
+    <div class="sd3d" style="background:linear-gradient(135deg,#065f46,#10b981);cursor:pointer;" onclick="showPage('studentAttendance')">
+      <div style="position:absolute;right:14px;top:14px;font-size:38px;opacity:.18;">✅</div>
+      <div class="sd3d-val" id="sd_att">—</div>
+      <div class="sd3d-label">Attendance Rate</div>
+      <div class="sd3d-sub">Click for details</div>
     </div>
-    ${USER.class==='Basic 9'?`
-    <div class="stat-card purple" style="cursor:pointer;" onclick="showAiSubjectInsights()">
-      <div class="stat-icon purple"><i class="fas fa-robot"></i></div>
-      <div class="stat-info"><div class="stat-value" id="sd_grade" style="font-size:14px;line-height:1.3;">—</div><div class="stat-label">Overall Average</div><div class="stat-change" style="color:#8b5cf6;font-weight:600;">🤖 AI Analytics – Subject Performance Insights</div></div>
+    <div class="sd3d" style="background:linear-gradient(135deg,#4c1d95,#8b5cf6);">
+      <div style="position:absolute;right:14px;top:14px;font-size:38px;opacity:.18;">🎓</div>
+      <div class="sd3d-val" id="sd_grade">—</div>
+      <div class="sd3d-label">${USER.class==='Basic 9'?'Overall Average':'Overall Grade'}</div>
+      <div class="sd3d-sub">${USER.class==='Basic 9'?'Mock examination':'Term 1 performance'}</div>
     </div>
-    <div class="stat-card cyan" style="cursor:pointer;" onclick="showAiAggregateInsights()">
-      <div class="stat-icon cyan"><i class="fas fa-brain"></i></div>
-      <div class="stat-info"><div class="stat-value" id="sd_pos" style="font-size:14px;line-height:1.3;">—</div><div class="stat-label">Performance</div><div class="stat-change" style="color:#0891b2;font-weight:600;">🤖 AI Analytics – Performance based on aggregate Insights</div></div>
-    </div>`:`
-    <div class="stat-card purple">
-      <div class="stat-icon purple"><i class="fas fa-graduation-cap"></i></div>
-      <div class="stat-info"><div class="stat-value" id="sd_grade">—</div><div class="stat-label">Overall Grade</div><div class="stat-change">Term 1 performance</div></div>
+    <div class="sd3d" style="background:linear-gradient(135deg,#164e63,#06b6d4);">
+      <div style="position:absolute;right:14px;top:14px;font-size:38px;opacity:.18;">🏆</div>
+      <div class="sd3d-val" id="sd_pos">—</div>
+      <div class="sd3d-label">Position in Class</div>
+      <div class="sd3d-sub">Among classmates</div>
     </div>
-    <div class="stat-card cyan">
-      <div class="stat-icon cyan"><i class="fas fa-list-ol"></i></div>
-      <div class="stat-info"><div class="stat-value" id="sd_pos">—</div><div class="stat-label">Position in Class</div><div class="stat-change">Among classmates</div></div>
-    </div>`}
   </div>
   ${USER&&USER.class==='Basic 9'?`
   <div class="card" style="margin-bottom:14px;">
@@ -2914,15 +2979,31 @@ async function teacherDashboard() {
       <span class="portal-badge">Teacher Portal</span>
     </div>
   </div>
-  <div class="stats-grid">
-    <div class="stat-card blue"><div class="stat-icon blue"><i class="fas fa-book"></i></div>
-      <div class="stat-info"><div class="stat-value">${(USER.subjects||[]).length}</div><div class="stat-label">Assigned Subjects</div></div></div>
-    <div class="stat-card green" style="cursor:pointer;" onclick="showPage('teacherGrades')"><div class="stat-icon green"><i class="fas fa-star"></i></div>
-      <div class="stat-info"><div class="stat-value"><i class="fas fa-arrow-right"></i></div><div class="stat-label">Enter Grades</div></div></div>
-    <div class="stat-card purple" style="cursor:pointer;" onclick="showPage('teacherAttendance')"><div class="stat-icon purple"><i class="fas fa-clipboard-check"></i></div>
-      <div class="stat-info"><div class="stat-value"><i class="fas fa-arrow-right"></i></div><div class="stat-label">Mark Attendance</div></div></div>
-    <div class="stat-card cyan" style="cursor:pointer;" onclick="showPage('syllabusPortal')"><div class="stat-icon cyan"><i class="fas fa-book-open"></i></div>
-      <div class="stat-info"><div class="stat-value"><i class="fas fa-arrow-right"></i></div><div class="stat-label">View Syllabus</div></div></div>
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:18px;">
+    <div style="background:linear-gradient(135deg,#1e40af,#3b82f6);border-radius:18px;padding:20px;color:#fff;position:relative;overflow:hidden;box-shadow:0 8px 24px rgba(30,64,175,.3);transition:transform .2s;" onmouseenter="this.style.transform='translateY(-3px)'" onmouseleave="this.style.transform=''">
+      <div style="position:absolute;right:14px;top:14px;font-size:36px;opacity:.18;">📚</div>
+      <div style="font-size:32px;font-weight:800;">${(USER.subjects||[]).length}</div>
+      <div style="font-size:13px;font-weight:700;margin-top:6px;">Assigned Subjects</div>
+      <div style="font-size:11px;opacity:.7;margin-top:2px;">Active teaching</div>
+    </div>
+    <div style="background:linear-gradient(135deg,#065f46,#10b981);border-radius:18px;padding:20px;color:#fff;position:relative;overflow:hidden;box-shadow:0 8px 24px rgba(16,185,129,.3);cursor:pointer;transition:transform .2s;" onclick="showPage('teacherGrades')" onmouseenter="this.style.transform='translateY(-3px)'" onmouseleave="this.style.transform=''">
+      <div style="position:absolute;right:14px;top:14px;font-size:36px;opacity:.18;">⭐</div>
+      <div style="font-size:32px;font-weight:800;">→</div>
+      <div style="font-size:13px;font-weight:700;margin-top:6px;">Enter Grades</div>
+      <div style="font-size:11px;opacity:.7;margin-top:2px;">Click to enter</div>
+    </div>
+    <div style="background:linear-gradient(135deg,#4c1d95,#8b5cf6);border-radius:18px;padding:20px;color:#fff;position:relative;overflow:hidden;box-shadow:0 8px 24px rgba(139,92,246,.3);cursor:pointer;transition:transform .2s;" onclick="showPage('teacherAttendance')" onmouseenter="this.style.transform='translateY(-3px)'" onmouseleave="this.style.transform=''">
+      <div style="position:absolute;right:14px;top:14px;font-size:36px;opacity:.18;">📋</div>
+      <div style="font-size:32px;font-weight:800;">→</div>
+      <div style="font-size:13px;font-weight:700;margin-top:6px;">Mark Attendance</div>
+      <div style="font-size:11px;opacity:.7;margin-top:2px;">Click to mark</div>
+    </div>
+    <div style="background:linear-gradient(135deg,#164e63,#06b6d4);border-radius:18px;padding:20px;color:#fff;position:relative;overflow:hidden;box-shadow:0 8px 24px rgba(6,182,212,.3);cursor:pointer;transition:transform .2s;" onclick="showPage('syllabusPortal')" onmouseenter="this.style.transform='translateY(-3px)'" onmouseleave="this.style.transform=''">
+      <div style="position:absolute;right:14px;top:14px;font-size:36px;opacity:.18;">📖</div>
+      <div style="font-size:32px;font-weight:800;">→</div>
+      <div style="font-size:13px;font-weight:700;margin-top:6px;">View Syllabus</div>
+      <div style="font-size:11px;opacity:.7;margin-top:2px;">Click to view</div>
+    </div>
   </div>
   <div class="card">
     <div class="card-header"><h3>📚 My Assigned Subjects</h3></div>
@@ -3073,93 +3154,371 @@ async function changeTeacherPassword() {
 }
 
 
+
+function setSaTab(btn, tabId) {
+  document.querySelectorAll('.sa-tab-btn').forEach(b => {
+    b.classList.remove('active');
+    if (!b.style.background.includes('gradient')) b.style.background = '';
+  });
+  btn.classList.add('active');
+  ['saPerformance','saComparison','saAiReport'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = id === tabId ? '' : 'none';
+  });
+  const sid = document.getElementById('saStudentSel')?.value;
+  if (!sid) return;
+  if (tabId === 'saComparison') loadMockComparison(sid);
+  if (tabId === 'saAiReport') loadSaAiReport(sid);
+}
+
 async function initStudentAnalytics() {
   try {
     const raw = await get('/students/class/Basic 9');
     const students = Array.isArray(raw) ? raw : [];
     const sel = document.getElementById('saStudentSel');
     if (sel) {
-      sel.innerHTML = '<option value="">-- Select a student --</option>' + students.map(s => '<option value="'+s.id+'">'+s.full_name+'</option>').join('');
+      sel.innerHTML = '<option value="">-- Select a student --</option>' +
+        students.map(s => `<option value="${s.id}">${s.full_name}</option>`).join('');
     }
   } catch(e) { toast(e.message,'error'); }
 }
 
 async function loadStudentAnalytics() {
   const studentId = document.getElementById('saStudentSel')?.value;
-  const el = document.getElementById('saContent');
+  ['saPerformance','saComparison','saAiReport'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && id !== 'saPerformance') { el.style.display = 'none'; el.innerHTML = '<div class="empty-state"><i class="fas fa-chart-bar"></i><h4>Select a student first</h4></div>'; }
+  });
+  document.querySelectorAll('.sa-tab-btn').forEach((b,i) => { if(i===0){b.classList.add('active');}else{b.classList.remove('active');} });
+  const el = document.getElementById('saPerformance');
   if (!studentId) { el.innerHTML = '<div class="empty-state"><i class="fas fa-user"></i><h4>Select a student above</h4></div>'; return; }
   const mockNum = currentMockNumber || 1;
   try {
-    const d = await get('/mock/student/'+studentId+'?mock_number='+mockNum);
+    const d = await get(`/mock/student/${studentId}?mock_number=${mockNum}`);
     if (!d.scores || !d.scores.length) { el.innerHTML = '<div class="empty-state"><i class="fas fa-award"></i><h4>No mock scores found for this student</h4></div>'; return; }
-    
     const scores = d.scores;
     const avg = (scores.reduce((s,x) => s+parseFloat(x.score||0), 0) / scores.length).toFixed(1);
     const passed = scores.filter(s => parseFloat(s.score||0) >= 50).length;
     const failed = scores.length - passed;
-    
+    const aggColor = d.aggregate<=15?'#16a34a':d.aggregate<=24?'#d97706':d.aggregate<=29?'#ea580c':'#dc2626';
+
     el.innerHTML = `
-    <div class="grid-2" style="margin-bottom:16px;">
-      <div class="card"><div class="card-header"><h3>📊 Subject Average Scores</h3></div>
-        <div class="card-body"><div class="chart-wrap" style="height:300px;"><canvas id="saBarChart"></canvas></div></div></div>
-      <div class="card"><div class="card-header"><h3>🤖 AI Analytics – Subject Performance Insights</h3><span class="badge badge-purple">AI Powered</span></div>
-        <div class="card-body" id="saAIInsights"></div></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+      <div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);border-radius:14px;padding:16px;text-align:center;color:#fff;box-shadow:0 4px 15px rgba(37,99,235,.3);">
+        <div style="font-size:28px;font-weight:800;">${avg}%</div><div style="font-size:12px;opacity:.85;margin-top:4px;">Overall Average</div>
+      </div>
+      <div style="background:linear-gradient(135deg,#065f46,#16a34a);border-radius:14px;padding:16px;text-align:center;color:#fff;box-shadow:0 4px 15px rgba(22,163,74,.3);">
+        <div style="font-size:28px;font-weight:800;">${passed}</div><div style="font-size:12px;opacity:.85;margin-top:4px;">Subjects Passed</div>
+      </div>
+      <div style="background:linear-gradient(135deg,#7f1d1d,#dc2626);border-radius:14px;padding:16px;text-align:center;color:#fff;box-shadow:0 4px 15px rgba(220,38,38,.3);">
+        <div style="font-size:28px;font-weight:800;">${failed}</div><div style="font-size:12px;opacity:.85;margin-top:4px;">Need Improvement</div>
+      </div>
+      <div style="background:linear-gradient(135deg,#3b0764,#7c3aed);border-radius:14px;padding:16px;text-align:center;color:#fff;box-shadow:0 4px 15px rgba(124,58,237,.3);">
+        <div style="font-size:28px;font-weight:800;color:${aggColor};">${d.aggregate??'—'}</div><div style="font-size:12px;opacity:.85;margin-top:4px;">BECE Aggregate</div>
+      </div>
     </div>
-    <div class="card"><div class="card-header"><h3>📚 Subject Performance Breakdown</h3></div>
-      <div class="card-body table-wrap">
-        <table><thead><tr><th>Subject</th><th>Score</th><th>Grade</th><th>Status</th></tr></thead>
-        <tbody>${scores.map(s => {
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+      <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);">
+        <div style="font-size:13px;font-weight:700;color:#1e3a5f;margin-bottom:12px;">📊 3D Subject Performance</div>
+        <div style="position:relative;height:260px;"><canvas id="sa3DBar"></canvas></div>
+      </div>
+      <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);">
+        <div style="font-size:13px;font-weight:700;color:#1e3a5f;margin-bottom:12px;">🥧 Pass vs Fail Distribution</div>
+        <div style="position:relative;height:260px;"><canvas id="sa3DPie"></canvas></div>
+      </div>
+    </div>
+    <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);">
+      <div style="font-size:13px;font-weight:700;color:#1e3a5f;margin-bottom:12px;">📚 Subject Breakdown</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead><tr style="background:#1e3a5f;color:#fff;">
+          <th style="padding:10px 12px;text-align:left;border-radius:8px 0 0 0;">Subject</th>
+          <th style="padding:10px 12px;text-align:center;">Score</th>
+          <th style="padding:10px 12px;text-align:center;">Grade</th>
+          <th style="padding:10px 12px;text-align:center;border-radius:0 8px 0 0;">Status</th>
+        </tr></thead>
+        <tbody>${scores.map((s,i) => {
           const sc = parseFloat(s.score||0);
-          const status = sc >= 50 ? '<span class="badge badge-success">Pass</span>' : '<span class="badge badge-danger">Fail</span>';
-          return '<tr><td><strong>'+s.subject+'</strong></td><td>'+s.score+'/100</td><td>'+gradeToNumeric(s.grade)+'</td><td>'+status+'</td></tr>';
-        }).join('')}</tbody></table>
-      </div></div>`;
-    
-    // Bar chart
-    destroyChart('saBar');
+          const ng = gradeToNumeric(s.grade);
+          const bar = `<div style="height:6px;background:#e5e7eb;border-radius:3px;margin-top:4px;"><div style="height:6px;background:${sc>=70?'#16a34a':sc>=50?'#d97706':'#dc2626'};border-radius:3px;width:${sc}%;"></div></div>`;
+          return `<tr style="background:${i%2===0?'#f8fafc':'#fff'};">
+            <td style="padding:10px 12px;font-weight:600;">${s.subject}${bar}</td>
+            <td style="padding:10px 12px;text-align:center;color:#2563eb;font-weight:700;">${s.score}/100</td>
+            <td style="padding:10px 12px;text-align:center;color:#dc2626;font-weight:700;">${ng}</td>
+            <td style="padding:10px 12px;text-align:center;">${sc>=50?'<span style="background:#dcfce7;color:#16a34a;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;">PASS</span>':'<span style="background:#fee2e2;color:#dc2626;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;">FAIL</span>'}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>`;
+
     setTimeout(() => {
-      const ctx = document.getElementById('saBarChart');
-      if (ctx) {
-        charts.saBar = new Chart(ctx, {
+      // 3D-style bar chart with gradient
+      destroyChart('saBar');
+      const bCtx = document.getElementById('sa3DBar');
+      if (bCtx) {
+        const grad = bCtx.getContext('2d');
+        charts.saBar = new Chart(bCtx, {
           type: 'bar',
           data: {
-            labels: scores.map(s => s.subject.length > 12 ? s.subject.substring(0,12)+'...' : s.subject),
+            labels: scores.map(s => (s.subject||'').split(' ').map(w=>w[0]).join('').substring(0,6)),
             datasets: [{
               label: 'Score',
               data: scores.map(s => parseFloat(s.score||0)),
-              backgroundColor: scores.map(s => parseFloat(s.score||0)>=50 ? '#16a34a' : '#dc2626'),
-              borderRadius: 5
+              backgroundColor: scores.map(s => parseFloat(s.score||0)>=70?'rgba(22,163,74,0.85)':parseFloat(s.score||0)>=50?'rgba(217,119,6,0.85)':'rgba(220,38,38,0.85)'),
+              borderColor: scores.map(s => parseFloat(s.score||0)>=70?'#16a34a':parseFloat(s.score||0)>=50?'#d97706':'#dc2626'),
+              borderWidth: 2, borderRadius: 8, borderSkipped: false
             }]
           },
-          options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%'}}} }
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend:{display:false}, tooltip:{callbacks:{label: ctx=>`${ctx.raw}/100`}} },
+            scales: {
+              x: { grid:{display:false}, ticks:{font:{size:10,weight:'bold'}} },
+              y: { min:0, max:100, grid:{color:'rgba(0,0,0,.05)'}, ticks:{callback:v=>v+'%'} }
+            }
+          }
         });
       }
-    }, 100);
-    
-    // AI insights
-    const aiEl = document.getElementById('saAIInsights');
-    const strongest = [...scores].sort((a,b) => parseFloat(b.score||0)-parseFloat(a.score||0)).slice(0,3);
-    const weakest = [...scores].sort((a,b) => parseFloat(a.score||0)-parseFloat(b.score||0)).slice(0,3);
-    aiEl.innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px;">
-      <div style="background:#f0f9ff;padding:14px;border-radius:10px;text-align:center;"><div style="font-size:24px;font-weight:800;color:#2563eb;">${avg}%</div><div style="font-size:12px;color:var(--text-muted);">Overall Average</div></div>
-      <div style="background:#f0fdf4;padding:14px;border-radius:10px;text-align:center;"><div style="font-size:24px;font-weight:800;color:#16a34a;">${passed}</div><div style="font-size:12px;color:var(--text-muted);">Subjects Passed</div></div>
-      <div style="background:#fef2f2;padding:14px;border-radius:10px;text-align:center;"><div style="font-size:24px;font-weight:800;color:#dc2626;">${failed}</div><div style="font-size:12px;color:var(--text-muted);">Subjects Failed</div></div>
-      <div style="background:#faf5ff;padding:14px;border-radius:10px;text-align:center;"><div style="font-size:24px;font-weight:800;color:#7c3aed;">${d.aggregate??'—'}</div><div style="font-size:12px;color:var(--text-muted);">Aggregate</div></div>
-    </div>
-    <div style="background:#f0f9ff;border-radius:10px;padding:14px;margin-bottom:12px;">
-      <h4 style="font-size:13px;color:#0369a1;margin-bottom:8px;">💪 Strongest Subjects</h4>
-      ${strongest.map(s => '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;"><span>'+s.subject+'</span><strong>'+s.score+'%</strong></div>').join('')}
-    </div>
-    <div style="background:#fef2f2;border-radius:10px;padding:14px;margin-bottom:12px;">
-      <h4 style="font-size:13px;color:#dc2626;margin-bottom:8px;">⚠️ Needs Improvement</h4>
-      ${weakest.map(s => '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;"><span>'+s.subject+'</span><strong>'+s.score+'%</strong></div>').join('')}
-    </div>
-    <div style="background:#f0fdf4;border-radius:10px;padding:14px;">
-      <h4 style="font-size:13px;color:#16a34a;margin-bottom:8px;">🎯 Recommendations</h4>
-      <p style="font-size:13px;color:var(--text-muted);">${parseFloat(avg)>=70?'Excellent performance! Continue with the current study approach.':parseFloat(avg)>=50?'Good progress. Focus more on weaker subjects like '+weakest[0].subject+' and '+weakest[1].subject+'.':'Needs significant improvement. Consider extra tutoring in '+weakest.map(s=>s.subject).join(', ')+'.'}</p>
-    </div>`;
+      // 3D-style pie chart
+      destroyChart('saPie');
+      const pCtx = document.getElementById('sa3DPie');
+      if (pCtx) {
+        charts.saPie = new Chart(pCtx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Pass (≥50)', 'Fail (<50)', 'Distinction (≥80)'],
+            datasets: [{
+              data: [passed, failed, scores.filter(s=>parseFloat(s.score||0)>=80).length],
+              backgroundColor: ['rgba(22,163,74,0.85)','rgba(220,38,38,0.85)','rgba(37,99,235,0.85)'],
+              borderColor: ['#16a34a','#dc2626','#2563eb'],
+              borderWidth: 3, hoverOffset: 15
+            }]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false, cutout: '55%',
+            plugins: { legend:{position:'bottom',labels:{font:{size:12},padding:12}},
+              tooltip:{callbacks:{label: ctx=>`${ctx.label}: ${ctx.raw} subjects`}} }
+          }
+        });
+      }
+    }, 150);
   } catch(e){ toast(e.message,'error'); }
+}
+
+async function loadMockComparison(studentId) {
+  const el = document.getElementById('saComparison');
+  el.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
+  try {
+    const mockList = await get('/mock/list');
+    const mocks = (Array.isArray(mockList) ? mockList : [1,2,3]).slice(0,10);
+    const results = await Promise.all(mocks.map(m => get(`/mock/student/${studentId}?mock_number=${m}`).catch(()=>null)));
+    const validMocks = mocks.map((m,i) => ({mock:m, data:results[i]})).filter(x => x.data?.scores?.length);
+    if (!validMocks.length) { el.innerHTML = '<div class="empty-state"><i class="fas fa-chart-line"></i><h4>No mock data available for comparison</h4></div>'; return; }
+
+    const subjects = ['Career Technology','Computing','Creative Arts and Design','English Language','French','Ghanaian Language','Integrated Science','Mathematics','Religious and Moral Education','Social Studies'];
+    const abbr = {'Career Technology':'C.Tech','Computing':'Computing','Creative Arts and Design':'C.Arts','English Language':'English','French':'French','Ghanaian Language':'Fante','Integrated Science':'Science','Mathematics':'Maths','Religious and Moral Education':'RME','Social Studies':'Social'};
+    const mockColors = ['#2563eb','#16a34a','#d97706','#dc2626','#7c3aed','#0891b2','#db2777','#65a30d','#ea580c','#6366f1'];
+
+    el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+      <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);">
+        <div style="font-size:13px;font-weight:700;color:#1e3a5f;margin-bottom:12px;">📈 Aggregate Trend (Line Chart)</div>
+        <div style="position:relative;height:240px;"><canvas id="mockLineChart"></canvas></div>
+      </div>
+      <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);">
+        <div style="font-size:13px;font-weight:700;color:#1e3a5f;margin-bottom:12px;">🥧 Average Score Distribution</div>
+        <div style="position:relative;height:240px;"><canvas id="mockPie3D"></canvas></div>
+      </div>
+    </div>
+    <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:700;color:#1e3a5f;margin-bottom:12px;">📊 Subject Scores Across Mocks (3D Bar)</div>
+      <div style="position:relative;height:280px;"><canvas id="mockBar3D"></canvas></div>
+    </div>
+    <div style="background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);">
+      <div style="font-size:13px;font-weight:700;color:#1e3a5f;margin-bottom:12px;">📋 Mock Summary Table</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead><tr style="background:#1e3a5f;color:#fff;">
+          <th style="padding:10px 12px;text-align:left;">Mock</th>
+          <th style="padding:10px 12px;text-align:center;">Aggregate</th>
+          <th style="padding:10px 12px;text-align:center;">Avg Score</th>
+          <th style="padding:10px 12px;text-align:center;">Passed</th>
+          <th style="padding:10px 12px;text-align:center;">Trend</th>
+        </tr></thead>
+        <tbody>${validMocks.map((m,i) => {
+          const sc = m.data.scores||[];
+          const avg = sc.length?(sc.reduce((a,x)=>a+parseFloat(x.score||0),0)/sc.length).toFixed(1):0;
+          const pass = sc.filter(s=>parseFloat(s.score||0)>=50).length;
+          const prev = i>0?validMocks[i-1].data.aggregate:null;
+          const curr = m.data.aggregate;
+          const trend = prev===null?'—':curr<prev?`<span style="color:#16a34a;">↑ Improved</span>`:curr>prev?`<span style="color:#dc2626;">↓ Declined</span>`:`<span style="color:#d97706;">→ Same</span>`;
+          return `<tr style="background:${i%2===0?'#f8fafc':'#fff'};">
+            <td style="padding:10px 12px;font-weight:700;color:#2563eb;">Mock ${m.mock}</td>
+            <td style="padding:10px 12px;text-align:center;font-weight:700;">${curr??'—'}</td>
+            <td style="padding:10px 12px;text-align:center;">${avg}%</td>
+            <td style="padding:10px 12px;text-align:center;"><span style="background:#dcfce7;color:#16a34a;padding:3px 10px;border-radius:20px;font-size:11px;">${pass}/${sc.length}</span></td>
+            <td style="padding:10px 12px;text-align:center;">${trend}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>`;
+
+    setTimeout(() => {
+      // Line chart - aggregate trend
+      destroyChart('mockLine');
+      const lCtx = document.getElementById('mockLineChart');
+      if (lCtx) charts.mockLine = new Chart(lCtx, {
+        type: 'line',
+        data: {
+          labels: validMocks.map(m=>'Mock '+m.mock),
+          datasets: [{
+            label: 'Aggregate (lower=better)',
+            data: validMocks.map(m=>m.data.aggregate??null),
+            borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,.15)',
+            fill: true, tension: 0.4, pointRadius: 6, pointBackgroundColor: '#2563eb', pointBorderColor: '#fff', pointBorderWidth: 2
+          }]
+        },
+        options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{reverse:true,ticks:{stepSize:5}}} }
+      });
+
+      // Pie chart - avg score distribution across mocks
+      destroyChart('mockPie');
+      const pCtx = document.getElementById('mockPie3D');
+      if (pCtx) charts.mockPie = new Chart(pCtx, {
+        type: 'doughnut',
+        data: {
+          labels: validMocks.map(m=>'Mock '+m.mock),
+          datasets: [{
+            data: validMocks.map(m=>{const sc=m.data.scores||[];return sc.length?(sc.reduce((a,x)=>a+parseFloat(x.score||0),0)/sc.length).toFixed(1):0;}),
+            backgroundColor: mockColors.slice(0,validMocks.length),
+            borderWidth: 3, hoverOffset: 12
+          }]
+        },
+        options: { responsive:true, maintainAspectRatio:false, cutout:'50%', plugins:{legend:{position:'right',labels:{font:{size:11}}}} }
+      });
+
+      // 3D bar - subject scores across mocks
+      destroyChart('mockBar');
+      const bCtx = document.getElementById('mockBar3D');
+      if (bCtx) charts.mockBar = new Chart(bCtx, {
+        type: 'bar',
+        data: {
+          labels: subjects.map(s=>abbr[s]||s),
+          datasets: validMocks.map((m,i) => ({
+            label: 'Mock '+m.mock,
+            data: subjects.map(subj => { const sc=(m.data.scores||[]).find(x=>x.subject===subj); return sc?parseFloat(sc.score||0):0; }),
+            backgroundColor: mockColors[i]+'cc',
+            borderColor: mockColors[i],
+            borderWidth: 1.5, borderRadius: 4
+          }))
+        },
+        options: {
+          responsive:true, maintainAspectRatio:false,
+          plugins:{legend:{position:'top',labels:{font:{size:11}}}},
+          scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{min:0,max:100,grid:{color:'rgba(0,0,0,.05)'}}}
+        }
+      });
+    }, 150);
+  } catch(e) { el.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation"></i><h4>${e.message}</h4></div>`; }
+}
+
+async function loadSaAiReport(studentId) {
+  const el = document.getElementById('saAiReport');
+  el.innerHTML = '<div style="text-align:center;padding:40px;"><div class="spinner" style="margin:0 auto 12px;"></div><p>Loading student data...</p></div>';
+  try {
+    const mockNum = currentMockNumber || 1;
+    const [d, student] = await Promise.all([
+      get(`/mock/student/${studentId}?mock_number=${mockNum}`),
+      get(`/students/${studentId}`)
+    ]);
+    if (!d.scores?.length) { el.innerHTML = '<div class="empty-state"><i class="fas fa-robot"></i><h4>No mock scores found for AI analysis</h4></div>'; return; }
+
+    const scores = d.scores || [];
+    const sorted = [...scores].sort((a,b)=>parseFloat(b.score||0)-parseFloat(a.score||0));
+
+    el.innerHTML = `
+    <div style="background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);border-radius:14px;padding:20px;color:#fff;margin-bottom:16px;display:flex;align-items:center;gap:16px;">
+      <div style="width:56px;height:56px;background:rgba(255,255,255,.2);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:28px;">🤖</div>
+      <div>
+        <div style="font-size:18px;font-weight:700;">AI Academic Performance Analysis</div>
+        <div style="opacity:.8;font-size:13px;margin-top:4px;">${student?.full_name||'Student'} • Mock ${mockNum} • BECE Aggregate: ${d.aggregate??'N/A'}</div>
+      </div>
+    </div>
+    <div id="saAiContent" style="background:#fff;border-radius:14px;padding:20px;box-shadow:0 2px 12px rgba(0,0,0,.08);min-height:200px;">
+      <button onclick="runSaAiAnalysis(${studentId},${mockNum})" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:10px;padding:12px 24px;cursor:pointer;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px;margin:0 auto;">
+        🤖 Generate AI Performance Report with BECE Predictions
+      </button>
+      <p style="text-align:center;color:var(--text-muted);font-size:13px;margin-top:12px;">Includes: BECE Predictions • Strengths • Weaknesses • Personalised Recommendations</p>
+    </div>`;
+    // Store for AI call
+    window._saCurrentStudent = { studentId, mockNum, scores: d.scores, aggregate: d.aggregate, best4Core: d.best4Core, best2Elective: d.best2Elective, name: student?.full_name||'Student' };
+  } catch(e) { el.innerHTML = `<div class="empty-state"><i class="fas fa-robot"></i><h4>${e.message}</h4></div>`; }
+}
+
+async function runSaAiAnalysis(studentId, mockNum) {
+  const el = document.getElementById('saAiContent');
+  const s = window._saCurrentStudent;
+  if (!s) return;
+  el.innerHTML = '<div style="text-align:center;padding:40px;"><div class="spinner" style="margin:0 auto 12px;"></div><p style="color:var(--text-muted);">Generating AI report...</p></div>';
+
+  const scores = s.scores || [];
+  const sorted = [...scores].sort((a,b)=>parseFloat(b.score||0)-parseFloat(a.score||0));
+  const avg = scores.length ? (scores.reduce((a,x)=>a+parseFloat(x.score||0),0)/scores.length).toFixed(1) : 0;
+
+  const prompt = `You are an expert academic analyst for Queen of Apostles Boarding School, Elmina, Ghana. Generate a comprehensive individual AI performance report.
+
+STUDENT: ${s.name}
+EXAMINATION: Mock ${mockNum} | CLASS: Basic 9 | YEAR: 2024/2025
+BECE AGGREGATE: ${s.aggregate??'N/A'} (lower is better; target ≤24 for university)
+OVERALL AVERAGE: ${avg}%
+
+SUBJECT SCORES:
+${scores.map(x=>`${x.subject}: ${x.score}/100 (Grade ${gradeToNumeric(x.grade)||x.grade})`).join(', ')}
+
+BEST 4 CORE (used in aggregate): ${(s.best4Core||[]).map(x=>x.subject+'='+x.score).join(', ')||'N/A'}
+BEST 2 ELECTIVE (used in aggregate): ${(s.best2Elective||[]).map(x=>x.subject+'='+x.score).join(', ')||'N/A'}
+
+Generate a professional, warm, encouraging report with these sections:
+
+**Overall Performance**
+[2-3 sentence summary of overall academic standing, aggregate interpretation, and class standing]
+
+**Subject Analysis**
+[For each subject: one line with performance level and specific advice]
+
+**Strengths**
+[3 bullet points based on highest scores]
+
+**Areas for Improvement**  
+[3 bullet points for lowest-scoring subjects with concrete study tips]
+
+**BECE Predictions**
+[Predict expected aggregate range if current trend continues. State probability of achieving aggregate ≤24 (university entry). Be specific.]
+
+**Personalised Recommendations**
+[5 specific, actionable daily study recommendations]
+
+**Motivation**
+["One powerful personalised motivational quote in quotation marks"]
+
+Be specific with student's actual name and scores. 400-600 words. Professional yet warm tone.`;
+
+  try {
+    const res = await fetch('/api/ai/analyze', {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${TOKEN}`},
+      body: JSON.stringify({ prompt, max_tokens: 1200 })
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error||'AI error');
+    const text = data.content?.[0]?.text || 'No response.';
+    el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div style="font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;">AI Analysis Report</div>
+      <button onclick="navigator.clipboard.writeText(document.getElementById('saAiText').textContent).then(()=>toast('Copied!','success'))" class="btn btn-sm">📋 Copy</button>
+    </div>
+    <div id="saAiText" style="font-size:14px;line-height:1.85;color:var(--text-primary);white-space:pre-wrap;background:#f8fafc;padding:16px;border-radius:10px;">${text}</div>`;
+  } catch(e) {
+    el.innerHTML = `<div style="color:#dc2626;padding:16px;background:#fee2e2;border-radius:10px;">AI report failed: ${e.message}</div>
+    <button onclick="runSaAiAnalysis(${studentId},${mockNum})" style="margin-top:12px;background:#6366f1;color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;">🔄 Retry</button>`;
+  }
 }
 
 // ════════════════════════════════════════════
@@ -3684,6 +4043,196 @@ Use the student's name and be specific about their aggregate number. Keep tone w
     document.getElementById('aiAggInsightContent').innerHTML = `<p style="color:red;">Analysis failed: ${e.message}</p>`;
   }
 }
+// ── STUDENT ANALYTICS TAB SWITCHER ──
+function setSaTab(tab) {
+  document.getElementById('saContent').style.display = tab==='perf'?'':'none';
+  document.getElementById('saCompContent').style.display = tab==='comp'?'':'none';
+  document.getElementById('saAIContent').style.display = tab==='ai'?'':'none';
+  ['saTabPerf','saTabComp','saTabAI'].forEach(id=>{
+    const b=document.getElementById(id);
+    if(b){b.style.background='';b.style.color='';b.style.borderColor='';}
+  });
+  const active = document.getElementById('saTab'+tab.charAt(0).toUpperCase()+tab.slice(1));
+  if(active){active.style.background=tab==='ai'?'linear-gradient(135deg,#6366f1,#8b5cf6)':'#2563eb';active.style.color='#fff';active.style.borderColor=tab==='ai'?'transparent':'#2563eb';}
+  const studentId = document.getElementById('saStudentSel')?.value;
+  if (!studentId) return;
+  if (tab==='comp') loadMockComparison(studentId);
+  if (tab==='ai') loadStudentAIReport(studentId);
+}
+
+// ── MOCK COMPARISON with 3D charts ──
+async function loadMockComparison(studentId) {
+  const el = document.getElementById('saCompContent');
+  if (!el) return;
+  el.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
+  try {
+    const mockList = await get('/mock/list');
+    const mocks = (mockList||[1,2,3]).slice(0,15);
+    const results = await Promise.all(mocks.map(m => get(`/mock/student/${studentId}?mock_number=${m}`).catch(()=>null)));
+    const MOCK_SUBJS = ['Career Technology','Computing','Creative Arts and Design','English Language','French','Ghanaian Language','Integrated Science','Mathematics','Religious and Moral Education','Social Studies'];
+    const ABBR = {'Career Technology':'C.Tech','Computing':'Computing','Creative Arts and Design':'C.Arts','English Language':'English','French':'French','Ghanaian Language':'Fante','Integrated Science':'Science','Mathematics':'Maths','Religious and Moral Education':'RME','Social Studies':'Social'};
+    const validResults = results.map((r,i)=>({mock:mocks[i], data:r, agg:r?.aggregate??null, avg: r?.scores?.length ? Math.round(r.scores.reduce((s,x)=>s+(parseFloat(x.score)||0),0)/r.scores.length) : null})).filter(r=>r.agg!==null||r.avg!==null);
+    const labels = validResults.map(r=>'Mock '+r.mock);
+    const aggData = validResults.map(r=>r.agg??0);
+    const avgData = validResults.map(r=>r.avg??0);
+    el.innerHTML = `
+    <style>.comp3d{background:#fff;border-radius:16px;padding:18px;box-shadow:0 4px 20px rgba(0,0,0,.08);margin-bottom:16px;}</style>
+    <div class="comp3d">
+      <div style="font-size:14px;font-weight:700;color:#1e3a5f;margin-bottom:14px;">📈 Aggregate Trend Across Mocks <span style="font-size:11px;color:#6b7280;font-weight:400;">(lower aggregate = better)</span></div>
+      <div style="position:relative;height:240px;"><canvas id="compAggChart"></canvas></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+      <div class="comp3d">
+        <div style="font-size:14px;font-weight:700;color:#1e3a5f;margin-bottom:14px;">📊 Average Score per Mock</div>
+        <div style="position:relative;height:200px;"><canvas id="compAvgChart"></canvas></div>
+      </div>
+      <div class="comp3d">
+        <div style="font-size:14px;font-weight:700;color:#1e3a5f;margin-bottom:14px;">🍕 Best Mock Performance</div>
+        <div style="position:relative;height:200px;"><canvas id="compPieChart"></canvas></div>
+      </div>
+    </div>
+    ${validResults.length>0?`
+    <div class="comp3d">
+      <div style="font-size:14px;font-weight:700;color:#1e3a5f;margin-bottom:14px;">📋 Subject Performance Heatmap – Latest Mock</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">
+        ${(validResults[validResults.length-1]?.data?.scores||[]).map(s=>{
+          const sc=parseFloat(s.score)||0;
+          const col=sc>=70?'#16a34a':sc>=50?'#d97706':'#dc2626';
+          const bg=sc>=70?'#f0fdf4':sc>=50?'#fef9c3':'#fef2f2';
+          return `<div style="background:${bg};border-radius:10px;padding:10px 8px;text-align:center;border:2px solid ${col}22;">
+            <div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:4px;">${ABBR[s.subject]||s.subject.split(' ')[0]}</div>
+            <div style="font-size:20px;font-weight:800;color:${col};">${sc}</div>
+            <div style="font-size:10px;color:#6b7280;">Grade ${s.grade||'—'}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`:''}
+    ${validResults.length===0?'<div style="text-align:center;padding:60px 20px;color:#9ca3af;"><div style="font-size:48px;margin-bottom:12px;">📊</div><h3>No mock data available</h3><p>Enter mock scores first to see comparison.</p></div>':''}`;
+
+    setTimeout(()=>{
+      // Aggregate trend - Line with 3D shadow effect
+      const aggCtx = document.getElementById('compAggChart');
+      if(aggCtx && labels.length>0){
+        const g=aggCtx.getContext('2d').createLinearGradient(0,0,0,240);
+        g.addColorStop(0,'rgba(220,38,38,0.3)'); g.addColorStop(1,'rgba(220,38,38,0.02)');
+        new Chart(aggCtx,{type:'line',data:{labels,datasets:[{label:'Aggregate',data:aggData,fill:true,backgroundColor:g,borderColor:'#dc2626',borderWidth:3,tension:.4,pointRadius:7,pointBackgroundColor:aggData.map(a=>a<=15?'#16a34a':a<=24?'#d97706':a<=29?'#ea580c':'#dc2626'),pointBorderColor:'#fff',pointBorderWidth:2,pointHoverRadius:9}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},annotation:{},tooltip:{callbacks:{label:v=>'Aggregate: '+v.raw+' '+(v.raw<=15?'🟢 Excellent':v.raw<=24?'🟡 Good':v.raw<=29?'🟠 Fair':'🔴 Needs Work')}}},scales:{y:{reverse:false,grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:11}}},x:{grid:{display:false}}}}});
+      }
+      // Average Bar - 3D style
+      const avgCtx = document.getElementById('compAvgChart');
+      if(avgCtx && labels.length>0){
+        const barCols = avgData.map(a=>a>=70?'rgba(22,163,74,.85)':a>=50?'rgba(217,119,6,.85)':'rgba(220,38,38,.85)');
+        new Chart(avgCtx,{type:'bar',data:{labels,datasets:[{label:'Avg %',data:avgData,backgroundColor:barCols,borderColor:barCols,borderWidth:2,borderRadius:8,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{min:0,max:100,grid:{color:'rgba(0,0,0,.04)'},ticks:{callback:v=>v+'%'}}}}});
+      }
+      // Pie - best subjects in latest mock
+      const pieCtx = document.getElementById('compPieChart');
+      const lastScores = validResults[validResults.length-1]?.data?.scores||[];
+      if(pieCtx && lastScores.length>0){
+        const top5 = [...lastScores].sort((a,b)=>parseFloat(b.score)-parseFloat(a.score)).slice(0,5);
+        new Chart(pieCtx,{type:'doughnut',data:{labels:top5.map(s=>ABBR[s.subject]||s.subject.split(' ')[0]),datasets:[{data:top5.map(s=>parseFloat(s.score)||0),backgroundColor:['#3b82f6','#22c55e','#f59e0b','#8b5cf6','#ef4444'],borderColor:'#fff',borderWidth:4,hoverOffset:14}]},options:{responsive:true,maintainAspectRatio:false,cutout:'50%',plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:8,usePointStyle:true}}}}});
+      }
+    },150);
+  } catch(e){ el.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle"></i><h4>Error loading comparison</h4><p>${e.message}</p></div>`; }
+}
+
+// ── INDIVIDUAL STUDENT AI REPORT ──
+async function loadStudentAIReport(studentId) {
+  const el = document.getElementById('saAIContent');
+  if (!el) return;
+  const studentName = document.getElementById('saStudentSel')?.selectedOptions?.[0]?.text || 'Student';
+  el.innerHTML = `
+    <div style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);border-radius:16px;padding:24px;border:1px solid #ddd6fe;">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+        <div style="width:52px;height:52px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:0 4px 14px rgba(99,102,241,.4);">🤖</div>
+        <div>
+          <h3 style="font-size:16px;font-weight:700;margin:0;color:#3730a3;">AI BECE Performance Analysis</h3>
+          <p style="font-size:13px;color:#6b7280;margin:2px 0 0;">${studentName} — Predictions, Strengths, Weaknesses & Recommendations</p>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+        <select id="aiStudentMockSel" style="font-size:13px;padding:8px 12px;border-radius:8px;border:1px solid #ddd6fe;">
+          ${Array.from({length:15},(_,i)=>`<option value="${i+1}">Mock ${i+1}</option>`).join('')}
+        </select>
+        <button onclick="runSAStudentAI('${studentId}')" id="saAIRunBtn" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;padding:8px 20px;cursor:pointer;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px;">
+          <span>🤖</span> Generate AI Report
+        </button>
+      </div>
+      <div id="saAIReportOut" style="display:none;background:#fff;border-radius:12px;padding:20px;border:1px solid #e0e7ff;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <span style="font-weight:700;color:#3730a3;font-size:13px;">AI Analysis Report</span>
+          <button onclick="copyAiReport('saAIReportText')" style="font-size:12px;border:1px solid #e0e7ff;border-radius:6px;padding:4px 12px;background:#f5f3ff;cursor:pointer;color:#6366f1;font-weight:600;">📋 Copy</button>
+        </div>
+        <div id="saAIReportText" style="font-size:14px;line-height:1.8;color:#1f2937;white-space:pre-wrap;"></div>
+      </div>
+    </div>`;
+}
+
+async function runSAStudentAI(studentId) {
+  const btn = document.getElementById('saAIRunBtn');
+  const mockNum = document.getElementById('aiStudentMockSel')?.value || 1;
+  const studentName = document.getElementById('saStudentSel')?.selectedOptions?.[0]?.text || 'Student';
+  btn.disabled = true;
+  btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite"></span> Generating...';
+  try {
+    const d = await get(`/mock/student/${studentId}?mock_number=${mockNum}`);
+    const scores = d?.scores || [];
+    const agg = d?.aggregate ?? 'N/A';
+    const avg = scores.length ? Math.round(scores.reduce((s,x)=>s+(parseFloat(x.score)||0),0)/scores.length) : 0;
+    const sortedSc = [...scores].sort((a,b)=>parseFloat(b.score)-parseFloat(a.score));
+    const prompt = `You are an expert academic analyst for Queen of Apostles Boarding School, Ghana. Generate a comprehensive individual student AI performance report.
+
+STUDENT: ${studentName}
+EXAMINATION: Mock ${mockNum} | CLASS: Basic 9 | YEAR: 2024/2025
+BECE AGGREGATE: ${agg} | AVERAGE SCORE: ${avg}%
+
+SUBJECT SCORES:
+${sortedSc.map(s=>`${s.subject}: ${s.score}/100 (Grade ${s.grade||'—'})`).join(', ')}
+
+Generate a detailed report with these sections:
+
+Student: ${studentName}
+Examination: Mock ${mockNum} Examination
+
+📊 Overall Performance
+[2-3 sentences on overall performance, aggregate meaning, and class context]
+
+📚 Subject Analysis
+[For EACH subject: one line with performance level and specific advice]
+
+💪 Strengths
+[3-4 bullet points of specific academic strengths]
+
+⚠️ Areas for Improvement
+[3-4 specific subjects needing work with study tips]
+
+🔮 BECE Prediction
+[Expected BECE aggregate range if trends continue, with probability of improvement]
+
+💡 Personalized Recommendations
+[5 specific, actionable study recommendations for this student]
+
+🌟 Motivation
+["One powerful quote in quotes, personalized to this student's performance"]
+
+Be warm, specific, use the student's name. 400-600 words.`;
+
+    const res = await fetch('/api/ai/analyze', {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${TOKEN}`},
+      body: JSON.stringify({prompt, max_tokens:1200})
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || 'AI error');
+    const text = data.content?.[0]?.text;
+    if (!text) throw new Error('Empty response from AI');
+    document.getElementById('saAIReportText').textContent = text;
+    document.getElementById('saAIReportOut').style.display = 'block';
+    document.getElementById('saAIReportOut').scrollIntoView({behavior:'smooth',block:'start'});
+  } catch(e) { alert('AI Report failed: ' + e.message); }
+  finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span>🤖</span> Generate AI Report';
+  }
+}
+
 </script>
 </body>
 </html>
