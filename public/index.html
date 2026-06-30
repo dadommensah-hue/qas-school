@@ -789,15 +789,16 @@ async function dashboard() {
     </div>`;
 
     setTimeout(() => {
+     try {
       destroyChart('att'); destroyChart('class'); destroyChart('grade'); destroyChart('boarding');
       // 3D-style Weekly Attendance - Area Line
       const attLabels = (d.weeklyAttendance||[]).map(w=>new Date(w.date).toLocaleDateString('en-GH',{weekday:'short'}));
-      const attData = (d.weeklyAttendance||[]).map(w=>w.total?((w.present/w.total)*100).toFixed(0):0);
+      const attData = (d.weeklyAttendance||[]).map(w=>{const t=parseInt(String(w.total||0)),p=parseInt(String(w.present||0));return t?((p/t)*100).toFixed(0):0;});
       const attCtx = document.getElementById('attChart');
       if (attCtx) {
         const g = attCtx.getContext('2d').createLinearGradient(0,0,0,220);
         g.addColorStop(0,'rgba(59,130,246,0.5)'); g.addColorStop(1,'rgba(59,130,246,0.02)');
-        charts.att = new Chart(attCtx,{type:'line',data:{labels:attLabels,datasets:[{label:'Attendance %',data:attData,fill:true,backgroundColor:g,borderColor:'#3b82f6',borderWidth:3,tension:.4,pointRadius:6,pointBackgroundColor:'#1e40af',pointBorderColor:'#fff',pointBorderWidth:2,pointHoverRadius:8}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:v=>v.raw+'%'}}},scales:{y:{min:0,max:100,grid:{color:'rgba(0,0,0,.04)'},ticks:{callback:v=>v+'%',font:{size:11}}},horror:{grid:{display:false}}}}});
+        charts.att = new Chart(attCtx,{type:'line',data:{labels:attLabels,datasets:[{label:'Attendance %',data:attData,fill:true,backgroundColor:g,borderColor:'#3b82f6',borderWidth:3,tension:.4,pointRadius:6,pointBackgroundColor:'#1e40af',pointBorderColor:'#fff',pointBorderWidth:2,pointHoverRadius:8}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:v=>v.raw+'%'}}},scales:{y:{min:0,max:100,grid:{color:'rgba(0,0,0,.04)'},ticks:{callback:v=>v+'%',font:{size:11}}},x:{grid:{display:false}}}}});
       }
       // 3D-style Enrolment Bar
       const clsCtx = document.getElementById('classChart');
@@ -809,14 +810,15 @@ async function dashboard() {
       const gradeCtx = document.getElementById('gradeChart');
       if (gradeCtx) {
         const gCols = ['#16a34a','#3b82f6','#f59e0b','#f97316','#ef4444','#8b5cf6','#06b6d4'];
-        charts.grade = new Chart(gradeCtx,{type:'doughnut',data:{labels:(d.gradeDistribution||[]).map(g=>'Grade '+g.grade),datasets:[{data:(d.gradeDistribution||[]).map(g=>g.count),backgroundColor:gCols,borderColor:'#fff',borderWidth:4,hoverOffset:20,hoverBorderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,cutout:'58%',plugins:{legend:{position:'bottom',labels:{font:{size:11,weight:'600'},padding:10,usePointStyle:true}},tooltip:{callbacks:{label:v=>`${v.label}: ${v.raw} students`}}}}});
+        charts.grade = new Chart(gradeCtx,{type:'doughnut',data:{labels:(d.gradeDistribution||[]).map(g=>'Grade '+g.grade),datasets:[{data:(d.gradeDistribution||[]).map(g=>parseInt(String(g.count||0))),backgroundColor:gCols,borderColor:'#fff',borderWidth:4,hoverOffset:20,hoverBorderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,cutout:'58%',plugins:{legend:{position:'bottom',labels:{font:{size:11,weight:'600'},padding:10,usePointStyle:true}},tooltip:{callbacks:{label:v=>`${v.label}: ${v.raw} students`}}}}});
       }
       // 3D-style Boarding vs Day Pie
       const bCtx = document.getElementById('boardingChart');
       if (bCtx) {
         charts.boarding = new Chart(bCtx,{type:'pie',data:{labels:['Boarding','Day'],datasets:[{data:[bs,ds],backgroundColor:['rgba(14,116,144,.85)','rgba(180,83,9,.85)'],borderColor:['#0e7490','#b45309'],borderWidth:4,hoverOffset:16,hoverBorderWidth:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:13,weight:'700'},padding:16,usePointStyle:true}},tooltip:{callbacks:{label:v=>`${v.label}: ${v.raw} (${ts>0?((v.raw/ts)*100).toFixed(1):0}%)`}}}}});
       }
-    }, 100);
+     } catch(chartErr) { console.error('Dashboard chart error:', chartErr); }
+    }, 250);
   } catch(e) { toast(e.message,'error'); }
 }
 function eventIcon(t){ return {exam:'📝',holiday:'🏖️',meeting:'🤝',sports:'⚽',ceremony:'🏆',general:'📌'}[t]||'📌'; }
@@ -1668,7 +1670,7 @@ async function viewStudentMock(id, name) {
 async function loadMockEntry() {
   const mockNum = currentMockNumber || 1;
   try {
-    const raw = await get('/students/class/Basic 9');
+    const raw = await get('/students/class/' + encodeURIComponent('Basic 9'));
     const students = Array.isArray(raw) ? raw : [];
     const el = document.getElementById('mockEntry');
     if (!students.length) { el.innerHTML='<div class="empty-state"><i class="fas fa-users"></i><h4>No students in Basic 9</h4></div>'; return; }
@@ -1702,7 +1704,7 @@ async function loadMockEntry() {
 async function saveMockScores() {
   const mockNum = currentMockNumber || 1;
   try {
-    const raw = await get('/students/class/Basic 9');
+    const raw = await get('/students/class/' + encodeURIComponent('Basic 9'));
     const students = Array.isArray(raw) ? raw : [];
     const scores = [];
     students.forEach(st => {
@@ -3173,7 +3175,7 @@ function setSaTab(btn, tabId) {
 
 async function initStudentAnalytics() {
   try {
-    const raw = await get('/students/class/Basic 9');
+    const raw = await get('/students/class/' + encodeURIComponent('Basic 9'));
     const students = Array.isArray(raw) ? raw : [];
     const sel = document.getElementById('saStudentSel');
     if (sel) {
@@ -3645,7 +3647,7 @@ async function loadAiAnalysis() {
           <option value="">No comparison (single analysis)</option>
           ${mockOpts}
         </select>
-        <button onclick="runAiClassAnalysis()" id="aiRunBtn" class="btn btn-primary" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border-color:transparent;color:#fff;display:flex;align-items:center;gap:8px;padding:10px 20px">
+        <button onclick="runAiClassAnalysis()" id="aiRunBtn" class="btn btn-primary" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border-color:transparent;color:#fff;display:flex;align-items:center;gap:8px;padding:14px 26px;font-size:17px;font-weight:800;">
           🤖 Generate Class AI Report
         </button>
       </div>
@@ -3668,7 +3670,7 @@ async function loadAiAnalysis() {
           <option value="">— Select a student —</option>
           ${students.sort((a,b)=>a.full_name.localeCompare(b.full_name)).map(s=>`<option value="${s.id}">${s.full_name}</option>`).join('')}
         </select>
-        <button onclick="runAiStudentAnalysis()" id="aiStudentBtn" class="btn btn-primary" style="background:linear-gradient(135deg,#0ea5e9,#6366f1);border-color:transparent;color:#fff;display:flex;align-items:center;gap:8px;padding:10px 20px">
+        <button onclick="runAiStudentAnalysis()" id="aiStudentBtn" class="btn btn-primary" style="background:linear-gradient(135deg,#0ea5e9,#6366f1);border-color:transparent;color:#fff;display:flex;align-items:center;gap:8px;padding:14px 26px;font-size:17px;font-weight:800;">
           🎓 Generate Student Report
         </button>
       </div>
@@ -4041,195 +4043,6 @@ Use the student's name and be specific about their aggregate number. Keep tone w
     document.getElementById('aiAggInsightContent').textContent = data.content?.[0]?.text || 'No response.';
   } catch(e) {
     document.getElementById('aiAggInsightContent').innerHTML = `<p style="color:red;">Analysis failed: ${e.message}</p>`;
-  }
-}
-// ── STUDENT ANALYTICS TAB SWITCHER ──
-function setSaTab(tab) {
-  document.getElementById('saContent').style.display = tab==='perf'?'':'none';
-  document.getElementById('saCompContent').style.display = tab==='comp'?'':'none';
-  document.getElementById('saAIContent').style.display = tab==='ai'?'':'none';
-  ['saTabPerf','saTabComp','saTabAI'].forEach(id=>{
-    const b=document.getElementById(id);
-    if(b){b.style.background='';b.style.color='';b.style.borderColor='';}
-  });
-  const active = document.getElementById('saTab'+tab.charAt(0).toUpperCase()+tab.slice(1));
-  if(active){active.style.background=tab==='ai'?'linear-gradient(135deg,#6366f1,#8b5cf6)':'#2563eb';active.style.color='#fff';active.style.borderColor=tab==='ai'?'transparent':'#2563eb';}
-  const studentId = document.getElementById('saStudentSel')?.value;
-  if (!studentId) return;
-  if (tab==='comp') loadMockComparison(studentId);
-  if (tab==='ai') loadStudentAIReport(studentId);
-}
-
-// ── MOCK COMPARISON with 3D charts ──
-async function loadMockComparison(studentId) {
-  const el = document.getElementById('saCompContent');
-  if (!el) return;
-  el.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
-  try {
-    const mockList = await get('/mock/list');
-    const mocks = (mockList||[1,2,3]).slice(0,15);
-    const results = await Promise.all(mocks.map(m => get(`/mock/student/${studentId}?mock_number=${m}`).catch(()=>null)));
-    const MOCK_SUBJS = ['Career Technology','Computing','Creative Arts and Design','English Language','French','Ghanaian Language','Integrated Science','Mathematics','Religious and Moral Education','Social Studies'];
-    const ABBR = {'Career Technology':'C.Tech','Computing':'Computing','Creative Arts and Design':'C.Arts','English Language':'English','French':'French','Ghanaian Language':'Fante','Integrated Science':'Science','Mathematics':'Maths','Religious and Moral Education':'RME','Social Studies':'Social'};
-    const validResults = results.map((r,i)=>({mock:mocks[i], data:r, agg:r?.aggregate??null, avg: r?.scores?.length ? Math.round(r.scores.reduce((s,x)=>s+(parseFloat(x.score)||0),0)/r.scores.length) : null})).filter(r=>r.agg!==null||r.avg!==null);
-    const labels = validResults.map(r=>'Mock '+r.mock);
-    const aggData = validResults.map(r=>r.agg??0);
-    const avgData = validResults.map(r=>r.avg??0);
-    el.innerHTML = `
-    <style>.comp3d{background:#fff;border-radius:16px;padding:18px;box-shadow:0 4px 20px rgba(0,0,0,.08);margin-bottom:16px;}</style>
-    <div class="comp3d">
-      <div style="font-size:14px;font-weight:700;color:#1e3a5f;margin-bottom:14px;">📈 Aggregate Trend Across Mocks <span style="font-size:11px;color:#6b7280;font-weight:400;">(lower aggregate = better)</span></div>
-      <div style="position:relative;height:240px;"><canvas id="compAggChart"></canvas></div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
-      <div class="comp3d">
-        <div style="font-size:14px;font-weight:700;color:#1e3a5f;margin-bottom:14px;">📊 Average Score per Mock</div>
-        <div style="position:relative;height:200px;"><canvas id="compAvgChart"></canvas></div>
-      </div>
-      <div class="comp3d">
-        <div style="font-size:14px;font-weight:700;color:#1e3a5f;margin-bottom:14px;">🍕 Best Mock Performance</div>
-        <div style="position:relative;height:200px;"><canvas id="compPieChart"></canvas></div>
-      </div>
-    </div>
-    ${validResults.length>0?`
-    <div class="comp3d">
-      <div style="font-size:14px;font-weight:700;color:#1e3a5f;margin-bottom:14px;">📋 Subject Performance Heatmap – Latest Mock</div>
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">
-        ${(validResults[validResults.length-1]?.data?.scores||[]).map(s=>{
-          const sc=parseFloat(s.score)||0;
-          const col=sc>=70?'#16a34a':sc>=50?'#d97706':'#dc2626';
-          const bg=sc>=70?'#f0fdf4':sc>=50?'#fef9c3':'#fef2f2';
-          return `<div style="background:${bg};border-radius:10px;padding:10px 8px;text-align:center;border:2px solid ${col}22;">
-            <div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:4px;">${ABBR[s.subject]||s.subject.split(' ')[0]}</div>
-            <div style="font-size:20px;font-weight:800;color:${col};">${sc}</div>
-            <div style="font-size:10px;color:#6b7280;">Grade ${s.grade||'—'}</div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`:''}
-    ${validResults.length===0?'<div style="text-align:center;padding:60px 20px;color:#9ca3af;"><div style="font-size:48px;margin-bottom:12px;">📊</div><h3>No mock data available</h3><p>Enter mock scores first to see comparison.</p></div>':''}`;
-
-    setTimeout(()=>{
-      // Aggregate trend - Line with 3D shadow effect
-      const aggCtx = document.getElementById('compAggChart');
-      if(aggCtx && labels.length>0){
-        const g=aggCtx.getContext('2d').createLinearGradient(0,0,0,240);
-        g.addColorStop(0,'rgba(220,38,38,0.3)'); g.addColorStop(1,'rgba(220,38,38,0.02)');
-        new Chart(aggCtx,{type:'line',data:{labels,datasets:[{label:'Aggregate',data:aggData,fill:true,backgroundColor:g,borderColor:'#dc2626',borderWidth:3,tension:.4,pointRadius:7,pointBackgroundColor:aggData.map(a=>a<=15?'#16a34a':a<=24?'#d97706':a<=29?'#ea580c':'#dc2626'),pointBorderColor:'#fff',pointBorderWidth:2,pointHoverRadius:9}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},annotation:{},tooltip:{callbacks:{label:v=>'Aggregate: '+v.raw+' '+(v.raw<=15?'🟢 Excellent':v.raw<=24?'🟡 Good':v.raw<=29?'🟠 Fair':'🔴 Needs Work')}}},scales:{y:{reverse:false,grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:11}}},x:{grid:{display:false}}}}});
-      }
-      // Average Bar - 3D style
-      const avgCtx = document.getElementById('compAvgChart');
-      if(avgCtx && labels.length>0){
-        const barCols = avgData.map(a=>a>=70?'rgba(22,163,74,.85)':a>=50?'rgba(217,119,6,.85)':'rgba(220,38,38,.85)');
-        new Chart(avgCtx,{type:'bar',data:{labels,datasets:[{label:'Avg %',data:avgData,backgroundColor:barCols,borderColor:barCols,borderWidth:2,borderRadius:8,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{min:0,max:100,grid:{color:'rgba(0,0,0,.04)'},ticks:{callback:v=>v+'%'}}}}});
-      }
-      // Pie - best subjects in latest mock
-      const pieCtx = document.getElementById('compPieChart');
-      const lastScores = validResults[validResults.length-1]?.data?.scores||[];
-      if(pieCtx && lastScores.length>0){
-        const top5 = [...lastScores].sort((a,b)=>parseFloat(b.score)-parseFloat(a.score)).slice(0,5);
-        new Chart(pieCtx,{type:'doughnut',data:{labels:top5.map(s=>ABBR[s.subject]||s.subject.split(' ')[0]),datasets:[{data:top5.map(s=>parseFloat(s.score)||0),backgroundColor:['#3b82f6','#22c55e','#f59e0b','#8b5cf6','#ef4444'],borderColor:'#fff',borderWidth:4,hoverOffset:14}]},options:{responsive:true,maintainAspectRatio:false,cutout:'50%',plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:8,usePointStyle:true}}}}});
-      }
-    },150);
-  } catch(e){ el.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle"></i><h4>Error loading comparison</h4><p>${e.message}</p></div>`; }
-}
-
-// ── INDIVIDUAL STUDENT AI REPORT ──
-async function loadStudentAIReport(studentId) {
-  const el = document.getElementById('saAIContent');
-  if (!el) return;
-  const studentName = document.getElementById('saStudentSel')?.selectedOptions?.[0]?.text || 'Student';
-  el.innerHTML = `
-    <div style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);border-radius:16px;padding:24px;border:1px solid #ddd6fe;">
-      <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
-        <div style="width:52px;height:52px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:0 4px 14px rgba(99,102,241,.4);">🤖</div>
-        <div>
-          <h3 style="font-size:16px;font-weight:700;margin:0;color:#3730a3;">AI BECE Performance Analysis</h3>
-          <p style="font-size:13px;color:#6b7280;margin:2px 0 0;">${studentName} — Predictions, Strengths, Weaknesses & Recommendations</p>
-        </div>
-      </div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
-        <select id="aiStudentMockSel" style="font-size:13px;padding:8px 12px;border-radius:8px;border:1px solid #ddd6fe;">
-          ${Array.from({length:15},(_,i)=>`<option value="${i+1}">Mock ${i+1}</option>`).join('')}
-        </select>
-        <button onclick="runSAStudentAI('${studentId}')" id="saAIRunBtn" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;padding:8px 20px;cursor:pointer;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px;">
-          <span>🤖</span> Generate AI Report
-        </button>
-      </div>
-      <div id="saAIReportOut" style="display:none;background:#fff;border-radius:12px;padding:20px;border:1px solid #e0e7ff;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-          <span style="font-weight:700;color:#3730a3;font-size:13px;">AI Analysis Report</span>
-          <button onclick="copyAiReport('saAIReportText')" style="font-size:12px;border:1px solid #e0e7ff;border-radius:6px;padding:4px 12px;background:#f5f3ff;cursor:pointer;color:#6366f1;font-weight:600;">📋 Copy</button>
-        </div>
-        <div id="saAIReportText" style="font-size:14px;line-height:1.8;color:#1f2937;white-space:pre-wrap;"></div>
-      </div>
-    </div>`;
-}
-
-async function runSAStudentAI(studentId) {
-  const btn = document.getElementById('saAIRunBtn');
-  const mockNum = document.getElementById('aiStudentMockSel')?.value || 1;
-  const studentName = document.getElementById('saStudentSel')?.selectedOptions?.[0]?.text || 'Student';
-  btn.disabled = true;
-  btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite"></span> Generating...';
-  try {
-    const d = await get(`/mock/student/${studentId}?mock_number=${mockNum}`);
-    const scores = d?.scores || [];
-    const agg = d?.aggregate ?? 'N/A';
-    const avg = scores.length ? Math.round(scores.reduce((s,x)=>s+(parseFloat(x.score)||0),0)/scores.length) : 0;
-    const sortedSc = [...scores].sort((a,b)=>parseFloat(b.score)-parseFloat(a.score));
-    const prompt = `You are an expert academic analyst for Queen of Apostles Boarding School, Ghana. Generate a comprehensive individual student AI performance report.
-
-STUDENT: ${studentName}
-EXAMINATION: Mock ${mockNum} | CLASS: Basic 9 | YEAR: 2024/2025
-BECE AGGREGATE: ${agg} | AVERAGE SCORE: ${avg}%
-
-SUBJECT SCORES:
-${sortedSc.map(s=>`${s.subject}: ${s.score}/100 (Grade ${s.grade||'—'})`).join(', ')}
-
-Generate a detailed report with these sections:
-
-Student: ${studentName}
-Examination: Mock ${mockNum} Examination
-
-📊 Overall Performance
-[2-3 sentences on overall performance, aggregate meaning, and class context]
-
-📚 Subject Analysis
-[For EACH subject: one line with performance level and specific advice]
-
-💪 Strengths
-[3-4 bullet points of specific academic strengths]
-
-⚠️ Areas for Improvement
-[3-4 specific subjects needing work with study tips]
-
-🔮 BECE Prediction
-[Expected BECE aggregate range if trends continue, with probability of improvement]
-
-💡 Personalized Recommendations
-[5 specific, actionable study recommendations for this student]
-
-🌟 Motivation
-["One powerful quote in quotes, personalized to this student's performance"]
-
-Be warm, specific, use the student's name. 400-600 words.`;
-
-    const res = await fetch('/api/ai/analyze', {
-      method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${TOKEN}`},
-      body: JSON.stringify({prompt, max_tokens:1200})
-    });
-    const data = await res.json();
-    if (!res.ok || data.error) throw new Error(data.error || 'AI error');
-    const text = data.content?.[0]?.text;
-    if (!text) throw new Error('Empty response from AI');
-    document.getElementById('saAIReportText').textContent = text;
-    document.getElementById('saAIReportOut').style.display = 'block';
-    document.getElementById('saAIReportOut').scrollIntoView({behavior:'smooth',block:'start'});
-  } catch(e) { alert('AI Report failed: ' + e.message); }
-  finally {
-    btn.disabled = false;
-    btn.innerHTML = '<span>🤖</span> Generate AI Report';
   }
 }
 
