@@ -3516,7 +3516,7 @@ Be specific with student's actual name and scores. 400-600 words. Professional y
       <div style="font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;">AI Analysis Report</div>
       <button onclick="navigator.clipboard.writeText(document.getElementById('saAiText').textContent).then(()=>toast('Copied!','success'))" class="btn btn-sm">📋 Copy</button>
     </div>
-    <div id="saAiText" style="font-size:14px;line-height:1.85;color:var(--text-primary);white-space:pre-wrap;background:#f8fafc;padding:16px;border-radius:10px;">${text}</div>`;
+    <div id="saAiText" style="font-size:16px;line-height:1.85;color:var(--text-primary);font-weight:500;background:#f8fafc;padding:18px 20px;border-radius:10px;">${formatAiReport(text)}</div>`;
   } catch(e) {
     el.innerHTML = `<div style="color:#dc2626;padding:16px;background:#fee2e2;border-radius:10px;">AI report failed: ${e.message}</div>
     <button onclick="runSaAiAnalysis(${studentId},${mockNum})" style="margin-top:12px;background:#6366f1;color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;">🔄 Retry</button>`;
@@ -3658,7 +3658,7 @@ async function loadAiAnalysis() {
         <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em">AI Class Analysis Report</div>
         <button onclick="copyAiReport('aiReportText')" class="btn" style="font-size:12px;padding:4px 12px">📋 Copy report</button>
       </div>
-      <div id="aiReportText" style="font-size:14px;line-height:1.8;color:var(--text-primary);white-space:pre-wrap"></div>
+      <div id="aiReportText" style="font-size:16px;line-height:1.85;color:var(--text-primary);font-weight:500;"></div>
     </div>
 
     ${students.length > 0 ? `
@@ -3679,7 +3679,7 @@ async function loadAiAnalysis() {
           <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em">Individual Student Report</div>
           <button onclick="copyAiReport('aiStudentText')" class="btn" style="font-size:12px;padding:4px 12px">📋 Copy</button>
         </div>
-        <div id="aiStudentText" style="font-size:14px;line-height:1.8;color:var(--text-primary);white-space:pre-wrap"></div>
+        <div id="aiStudentText" style="font-size:16px;line-height:1.85;color:var(--text-primary);font-weight:500;"></div>
       </div>
     </div>` : ''}
 
@@ -3722,6 +3722,31 @@ function setAiFocus(btn) {
   document.querySelectorAll('.ai-focus-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   _aiFocus = btn.dataset.focus;
+}
+
+
+// ── Format AI markdown text into styled, bold, larger HTML ──
+function formatAiReport(raw) {
+  if (!raw) return '';
+  let txt = String(raw);
+  // Escape HTML first
+  txt = txt.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // Headings: **Heading** on its own line -> styled heading
+  txt = txt.replace(/^\*\*(.+?)\*\*\s*$/gm, '<div style="font-size:19px;font-weight:800;color:#1e3a5f;margin:18px 0 8px;padding-bottom:4px;border-bottom:2px solid #e0e7ff;">$1</div>');
+  // Inline bold **text**
+  txt = txt.replace(/\*\*(.+?)\*\*/g, '<strong style="font-weight:800;color:#1f2937;">$1</strong>');
+  // Bullet points starting with - or *
+  txt = txt.replace(/^[\-\*]\s+(.+)$/gm, '<div style="display:flex;gap:8px;margin:6px 0;padding-left:4px;"><span style="color:#6366f1;font-weight:800;">•</span><span style="flex:1;">$1</span></div>');
+  // Numbered list items "1. text"
+  txt = txt.replace(/^(\d+)\.\s+(.+)$/gm, '<div style="display:flex;gap:8px;margin:6px 0;padding-left:4px;"><span style="color:#6366f1;font-weight:800;min-width:20px;">$1.</span><span style="flex:1;">$2</span></div>');
+  // Convert remaining double newlines to paragraph spacing
+  txt = txt.replace(/\n\n+/g, '</p><p style="margin:10px 0;">');
+  txt = txt.replace(/\n/g, '<br>');
+  txt = '<p style="margin:10px 0;">' + txt + '</p>';
+  // Clean empty paragraphs around block-level divs
+  txt = txt.replace(/<p style="margin:10px 0;">\s*(<div)/g, '$1');
+  txt = txt.replace(/(<\/div>)\s*<\/p>/g, '$1');
+  return txt;
 }
 
 function copyAiReport(id) {
@@ -3803,7 +3828,7 @@ Use actual student names and scores. Professional, constructive, encouraging ton
     if (!res.ok || data.error) throw new Error(data.error || 'Server error: ' + res.status);
     const text = data.content?.[0]?.text;
     if (!text) throw new Error('AI returned empty response. Raw: ' + JSON.stringify(data).substring(0,200));
-    document.getElementById('aiReportText').textContent = text;
+    document.getElementById('aiReportText').innerHTML = formatAiReport(text);
     document.getElementById('aiReportOut').style.display = 'block';
     document.getElementById('aiReportOut').scrollIntoView({behavior:'smooth',block:'start'});
   } catch(e) { alert('AI analysis failed: ' + (e.message||'Unknown error. Check Render logs.')); }
@@ -3899,7 +3924,7 @@ Use the student's actual name throughout. Be specific, warm, professional, and c
     if (!res.ok || data.error) throw new Error(data.error || 'Server error: ' + res.status);
     const text = data.content?.[0]?.text;
     if (!text) throw new Error('AI returned empty response. Raw: ' + JSON.stringify(data).substring(0,200));
-    document.getElementById('aiStudentText').textContent = text;
+    document.getElementById('aiStudentText').innerHTML = formatAiReport(text);
     document.getElementById('aiStudentOut').style.display = 'block';
     document.getElementById('aiStudentOut').scrollIntoView({behavior:'smooth',block:'start'});
   } catch(e) { alert('Student analysis failed: ' + (e.message||'Unknown error. Check Render logs.')); }
@@ -3979,7 +4004,7 @@ Keep the tone motivating and use the student's name.`;
     const data = await res.json();
     if (!res.ok || data.error) throw new Error(data.error || 'Server error');
     document.getElementById('aiSubjectInsightContent').style.whiteSpace = 'pre-wrap';
-    document.getElementById('aiSubjectInsightContent').textContent = data.content?.[0]?.text || 'No response.';
+    document.getElementById('aiSubjectInsightContent').innerHTML = formatAiReport(data.content?.[0]?.text || 'No response.');
   } catch(e) {
     document.getElementById('aiSubjectInsightContent').innerHTML = `<p style="color:red;">Analysis failed: ${e.message}</p>`;
   }
@@ -4040,7 +4065,7 @@ Use the student's name and be specific about their aggregate number. Keep tone w
     const data = await res.json();
     if (!res.ok || data.error) throw new Error(data.error || 'Server error');
     document.getElementById('aiAggInsightContent').style.whiteSpace = 'pre-wrap';
-    document.getElementById('aiAggInsightContent').textContent = data.content?.[0]?.text || 'No response.';
+    document.getElementById('aiAggInsightContent').innerHTML = formatAiReport(data.content?.[0]?.text || 'No response.');
   } catch(e) {
     document.getElementById('aiAggInsightContent').innerHTML = `<p style="color:red;">Analysis failed: ${e.message}</p>`;
   }
