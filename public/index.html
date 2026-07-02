@@ -3424,34 +3424,80 @@ async function loadMockComparison(studentId) {
 
 async function loadSaAiReport(studentId) {
   const el = document.getElementById('saAiReport');
-  el.innerHTML = '<div style="text-align:center;padding:40px;"><div class="spinner" style="margin:0 auto 12px;"></div><p>Loading student data...</p></div>';
+  el.innerHTML = '<div style="text-align:center;padding:40px;"><div class="spinner" style="margin:0 auto 12px;"></div><p>Loading all mock data for trend analysis...</p></div>';
   try {
-    const mockNum = currentMockNumber || 1;
-    const [d, student] = await Promise.all([
-      get(`/mock/student/${studentId}?mock_number=${mockNum}`),
+    // Fetch student info + all available mocks for trend analysis
+    const [mockList, student] = await Promise.all([
+      get('/mock/list').catch(()=>[1]),
       get(`/students/${studentId}`)
     ]);
-    if (!d.scores?.length) { el.innerHTML = '<div class="empty-state"><i class="fas fa-robot"></i><h4>No mock scores found for AI analysis</h4></div>'; return; }
+    const allMocks = (mockList||[1]).slice(0,15);
 
-    const scores = d.scores || [];
-    const sorted = [...scores].sort((a,b)=>parseFloat(b.score||0)-parseFloat(a.score||0));
+    // Fetch all mock results for this student
+    const allResults = await Promise.all(
+      allMocks.map(m => get(`/mock/student/${studentId}?mock_number=${m}`).catch(()=>null))
+    );
+
+    // Filter to mocks that have scores
+    const validMocks = allResults.map((r,i)=>({mockNum:allMocks[i], data:r}))
+      .filter(x => x.data?.scores?.length > 0);
+
+    if (!validMocks.length) {
+      el.innerHTML = '<div class="empty-state"><i class="fas fa-robot"></i><h4>No mock scores found for AI analysis</h4></div>';
+      return;
+    }
+
+    const latest = validMocks[validMocks.length-1];
+    const mockNum = latest.mockNum;
+    const d = latest.data;
+
+    // Build trend summary
+    const trendSummary = validMocks.map(m =>
+      `Mock ${m.mockNum}: Agg=${m.data.aggregate??'N/A'}, Avg=${m.data.scores.length?(m.data.scores.reduce((s,x)=>s+parseFloat(x.score||0),0)/m.data.scores.length).toFixed(1):0}%`
+    ).join(' → ');
+
+    // Compute improvement trend
+    const aggTrend = validMocks.map(m=>m.data.aggregate).filter(a=>a!=null);
+    const trendDir = aggTrend.length>=2 ? (aggTrend[aggTrend.length-1] < aggTrend[0] ? '📈 Improving' : aggTrend[aggTrend.length-1] > aggTrend[0] ? '📉 Declining' : '➡️ Stable') : '—';
 
     el.innerHTML = `
-    <div style="background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);border-radius:14px;padding:20px;color:#fff;margin-bottom:16px;display:flex;align-items:center;gap:16px;">
-      <div style="width:56px;height:56px;background:rgba(255,255,255,.2);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:28px;">🤖</div>
-      <div>
-        <div style="font-size:18px;font-weight:700;">AI Academic Performance Analysis</div>
-        <div style="opacity:.8;font-size:13px;margin-top:4px;">${student?.full_name||'Student'} • Mock ${mockNum} • BECE Aggregate: ${d.aggregate??'N/A'}</div>
+    <div style="background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);border-radius:14px;padding:20px;color:#fff;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;">
+        <div style="width:56px;height:56px;background:rgba(255,255,255,.2);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:28px;">🤖</div>
+        <div>
+          <div style="font-size:18px;font-weight:700;">AI Academic Performance Analysis</div>
+          <div style="opacity:.8;font-size:13px;margin-top:4px;">${student?.full_name||'Student'} • ${validMocks.length} Mock(s) analysed • Latest Aggregate: ${d.aggregate??'N/A'}</div>
+        </div>
       </div>
+      <div style="display:grid;grid-template-columns:repeat(${Math.min(validMocks.length,4)},1fr);gap:8px;">
+        ${validMocks.map(m=>{
+          const agg=m.data.aggregate??'—';
+          const col=agg<=15?'#16a34a':agg<=24?'#d97706':agg<=29?'#ea580c':'#ef4444';
+          return `<div style="background:rgba(255,255,255,.12);border-radius:10px;padding:8px 10px;text-align:center;">
+            <div style="font-size:11px;opacity:.75;">Mock ${m.mockNum}</div>
+            <div style="font-size:20px;font-weight:800;color:${col};">${agg}</div>
+            <div style="font-size:10px;opacity:.7;">Aggregate</div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="margin-top:10px;font-size:13px;opacity:.85;">Trend: <strong>${trendDir}</strong> &nbsp;|&nbsp; ${trendSummary}</div>
     </div>
     <div id="saAiContent" style="background:#fff;border-radius:14px;padding:20px;box-shadow:0 2px 12px rgba(0,0,0,.08);min-height:200px;">
-      <button onclick="runSaAiAnalysis(${studentId},${mockNum})" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:10px;padding:12px 24px;cursor:pointer;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px;margin:0 auto;">
-        🤖 Generate AI Performance Report with BECE Predictions
+      <button onclick="runSaAiAnalysis(${studentId},${mockNum})" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:10px;padding:14px 28px;cursor:pointer;font-size:16px;font-weight:700;display:flex;align-items:center;gap:10px;margin:0 auto;">
+        🤖 Generate Trend-Based BECE Prediction Report
       </button>
-      <p style="text-align:center;color:var(--text-muted);font-size:13px;margin-top:12px;">Includes: BECE Predictions • Strengths • Weaknesses • Personalised Recommendations</p>
+      <p style="text-align:center;color:var(--text-muted);font-size:13px;margin-top:12px;">
+        Uses data from <strong>${validMocks.length} mock(s)</strong> to predict BECE aggregate with trend analysis
+      </p>
     </div>`;
-    // Store for AI call
-    window._saCurrentStudent = { studentId, mockNum, scores: d.scores, aggregate: d.aggregate, best4Core: d.best4Core, best2Elective: d.best2Elective, name: student?.full_name||'Student' };
+
+    // Store all mock data for AI call
+    window._saCurrentStudent = {
+      studentId, mockNum, name: student?.full_name||'Student',
+      scores: d.scores, aggregate: d.aggregate,
+      best4Core: d.best4Core, best2Elective: d.best2Elective,
+      allMocks: validMocks, trendSummary, trendDir, aggTrend
+    };
   } catch(e) { el.innerHTML = `<div class="empty-state"><i class="fas fa-robot"></i><h4>${e.message}</h4></div>`; }
 }
 
@@ -3459,64 +3505,98 @@ async function runSaAiAnalysis(studentId, mockNum) {
   const el = document.getElementById('saAiContent');
   const s = window._saCurrentStudent;
   if (!s) return;
-  el.innerHTML = '<div style="text-align:center;padding:40px;"><div class="spinner" style="margin:0 auto 12px;"></div><p style="color:var(--text-muted);">Generating AI report...</p></div>';
+  el.innerHTML = '<div style="text-align:center;padding:40px;"><div class="spinner" style="margin:0 auto 12px;"></div><p style="color:var(--text-muted);">Analysing all mocks and generating BECE prediction...</p></div>';
 
   const scores = s.scores || [];
-  const sorted = [...scores].sort((a,b)=>parseFloat(b.score||0)-parseFloat(a.score||0));
   const avg = scores.length ? (scores.reduce((a,x)=>a+parseFloat(x.score||0),0)/scores.length).toFixed(1) : 0;
 
-  const prompt = `You are an expert academic analyst for Queen of Apostles Boarding School, Elmina, Ghana. Generate a comprehensive individual AI performance report.
+  // Build per-subject trend across all mocks
+  const subjectTrends = {};
+  (s.allMocks||[]).forEach(m => {
+    (m.data.scores||[]).forEach(sc => {
+      if (!subjectTrends[sc.subject]) subjectTrends[sc.subject] = [];
+      subjectTrends[sc.subject].push(`Mock${m.mockNum}:${sc.score}`);
+    });
+  });
+  const subjectTrendText = Object.entries(subjectTrends)
+    .map(([subj,vals])=>`${subj}: ${vals.join(', ')}`).join('\n');
+
+  // Aggregate trajectory
+  const aggTrajectory = (s.aggTrend||[]).join(' → ');
+  const aggChange = s.aggTrend.length>=2 ? s.aggTrend[0]-s.aggTrend[s.aggTrend.length-1] : 0;
+  const improvement = aggChange > 0 ? `improved by ${aggChange} points` : aggChange < 0 ? `declined by ${Math.abs(aggChange)} points` : 'remained stable';
+
+  const prompt = `You are an expert BECE academic analyst for Queen of Apostles Boarding School, Elmina, Ghana. Generate a comprehensive trend-based BECE prediction report using data from ALL available mock examinations.
 
 STUDENT: ${s.name}
-EXAMINATION: Mock ${mockNum} | CLASS: Basic 9 | YEAR: 2024/2025
-BECE AGGREGATE: ${s.aggregate??'N/A'} (lower is better; target ≤24 for university)
-OVERALL AVERAGE: ${avg}%
+CLASS: Basic 9 | YEAR: 2024/2025
 
-SUBJECT SCORES:
-${scores.map(x=>`${x.subject}: ${x.score}/100 (Grade ${gradeToNumeric(x.grade)||x.grade})`).join(', ')}
+MOCK PERFORMANCE HISTORY:
+${s.trendSummary}
 
-BEST 4 CORE (used in aggregate): ${(s.best4Core||[]).map(x=>x.subject+'='+x.score).join(', ')||'N/A'}
-BEST 2 ELECTIVE (used in aggregate): ${(s.best2Elective||[]).map(x=>x.subject+'='+x.score).join(', ')||'N/A'}
+AGGREGATE TRAJECTORY: ${aggTrajectory}
+OVERALL TREND: ${s.trendDir} (aggregate has ${improvement} across all mocks)
 
-Generate a professional, warm, encouraging report with these sections:
+LATEST MOCK (Mock ${mockNum}) SCORES:
+${scores.map(x=>`${x.subject}: ${x.score}/100 (Grade ${gradeToNumeric(x.grade)||x.grade})`).join('\n')}
 
-**Overall Performance**
-[2-3 sentence summary of overall academic standing, aggregate interpretation, and class standing]
+BEST 4 CORE (Mock ${mockNum}): ${(s.best4Core||[]).map(x=>x.subject+'='+x.score).join(', ')||'N/A'}
+BEST 2 ELECTIVE (Mock ${mockNum}): ${(s.best2Elective||[]).map(x=>x.subject+'='+x.score).join(', ')||'N/A'}
+LATEST BECE AGGREGATE: ${s.aggregate??'N/A'}
+LATEST AVERAGE: ${avg}%
 
-**Subject Analysis**
-[For each subject: one line with performance level and specific advice]
+SUBJECT TRENDS ACROSS ALL MOCKS:
+${subjectTrendText}
+
+Generate a comprehensive, data-driven report with these sections:
+
+**Comprehensive Performance Analysis**
+[3-4 sentences covering overall trend across all mocks, aggregate trajectory, and what it means for BECE readiness]
+
+**Mock-by-Mock Progress Summary**
+[Brief line for each mock showing key highlights and whether it was better/worse than previous]
+
+**Subject Analysis (Latest Mock)**
+[For each subject: score, grade, trend direction (improving/declining/stable), and one specific recommendation]
 
 **Strengths**
-[3 bullet points based on highest scores]
+[3-4 bullet points with specific subjects and scores showing consistent strength across mocks]
 
-**Areas for Improvement**  
-[3 bullet points for lowest-scoring subjects with concrete study tips]
+**Areas for Improvement**
+[3-4 bullet points for subjects with declining or consistently low scores, with targeted study strategies]
 
-**BECE Predictions**
-[Predict expected aggregate range if current trend continues. State probability of achieving aggregate ≤24 (university entry). Be specific.]
+**Trend-Based BECE Predictions**
+[This is the most important section - use the actual aggregate trajectory to predict:
+- Expected BECE aggregate range (optimistic, realistic, pessimistic scenarios)
+- Probability of achieving aggregate ≤24 (university entry standard in Ghana)
+- Probability of achieving aggregate ≤30
+- If trend continues unchanged: predicted final aggregate
+- What needs to change to achieve aggregate ≤24
+Be specific and data-driven based on the actual trend numbers]
 
 **Personalised Recommendations**
-[5 specific, actionable daily study recommendations]
+[6 specific, actionable recommendations based on the trend analysis - include which subjects to prioritise and by how much]
 
 **Motivation**
-["One powerful personalised motivational quote in quotation marks"]
+["One powerful personalised motivational quote that references the student's actual improvement trend"]
 
-Be specific with student's actual name and scores. 400-600 words. Professional yet warm tone.`;
+Use ${s.name}'s actual name and scores throughout. 500-700 words. Professional, warm, data-driven tone.`;
 
   try {
     const res = await fetch('/api/ai/analyze', {
-      method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${TOKEN}`},
-      body: JSON.stringify({ prompt, max_tokens: 1200 })
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+TOKEN},
+      body: JSON.stringify({ prompt, max_tokens: 1500 })
     });
     const data = await res.json();
     if (!res.ok || data.error) throw new Error(data.error||'AI error');
     const text = data.content?.[0]?.text || 'No response.';
     el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-      <div style="font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;">AI Analysis Report</div>
+      <div style="font-size:13px;font-weight:700;color:#1e3a5f;">📊 Trend-Based BECE Prediction Report — ${s.name}</div>
       <button onclick="navigator.clipboard.writeText(document.getElementById('saAiText').textContent).then(()=>toast('Copied!','success'))" class="btn btn-sm">📋 Copy</button>
     </div>
-    <div id="saAiText" style="font-size:16px;line-height:1.85;color:var(--text-primary);font-weight:500;background:#f8fafc;padding:18px 20px;border-radius:10px;">${formatAiReport(text)}</div>`;
+    <div id="saAiText" style="font-size:16px;line-height:1.85;color:var(--text-primary);font-weight:500;background:#f8fafc;padding:18px 20px;border-radius:10px;">${formatAiReport(text)}</div>
+    <button onclick="loadSaAiReport(${studentId})" style="margin-top:14px;background:#f0f4ff;color:#4338ca;border:1px solid #c7d2fe;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:600;">🔄 Refresh with Latest Data</button>`;
   } catch(e) {
     el.innerHTML = `<div style="color:#dc2626;padding:16px;background:#fee2e2;border-radius:10px;">AI report failed: ${e.message}</div>
     <button onclick="runSaAiAnalysis(${studentId},${mockNum})" style="margin-top:12px;background:#6366f1;color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;">🔄 Retry</button>`;
