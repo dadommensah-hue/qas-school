@@ -3526,61 +3526,52 @@ async function runSaAiAnalysis(studentId, mockNum) {
   const aggChange = s.aggTrend.length>=2 ? s.aggTrend[0]-s.aggTrend[s.aggTrend.length-1] : 0;
   const improvement = aggChange > 0 ? `improved by ${aggChange} points` : aggChange < 0 ? `declined by ${Math.abs(aggChange)} points` : 'remained stable';
 
-  const prompt = `You are an expert BECE academic analyst for Queen of Apostles Boarding School, Elmina, Ghana. Generate a comprehensive trend-based BECE prediction report using data from ALL available mock examinations.
+  // Compute per-subject averages and trends across all mocks
+  const subjectAvgs = {};
+  const subjectFirstLast = {};
+  Object.entries(subjectTrends).forEach(([subj, vals]) => {
+    const nums = vals.map(v => parseFloat(v.split(':')[1])||0);
+    subjectAvgs[subj] = (nums.reduce((a,b)=>a+b,0)/nums.length).toFixed(1);
+    if (nums.length >= 2) {
+      const diff = nums[nums.length-1] - nums[0];
+      subjectFirstLast[subj] = diff > 0 ? `+${diff.toFixed(0)}` : `${diff.toFixed(0)}`;
+    }
+  });
 
-STUDENT: ${s.name}
-CLASS: Basic 9 | YEAR: 2024/2025
+  // Realistic BECE projection using linear regression on aggregate trend
+  let projectedAgg = s.aggregate ?? 'N/A';
+  let projectionNote = '';
+  if (s.aggTrend && s.aggTrend.length >= 2) {
+    const n = s.aggTrend.length;
+    const avgDelta = (s.aggTrend[0] - s.aggTrend[n-1]) / (n - 1);
+    const remainingMocks = Math.max(0, 5 - n);
+    const optimistic = Math.max(6, Math.round(s.aggTrend[n-1] - (avgDelta * 1.3 * remainingMocks)));
+    const realistic  = Math.max(8, Math.round(s.aggTrend[n-1] - (avgDelta * remainingMocks)));
+    const pessimistic= Math.max(10, Math.round(s.aggTrend[n-1] - (avgDelta * 0.5 * remainingMocks)));
+    projectedAgg = realistic;
+    projectionNote = 'Optimistic: ' + optimistic + ' | Realistic: ' + realistic + ' | Pessimistic: ' + pessimistic;
+  } else {
+    projectionNote = 'Only 1 mock available — projection preliminary';
+  }
 
-MOCK PERFORMANCE HISTORY:
-${s.trendSummary}
+  const weakSubjects = Object.entries(subjectAvgs)
+    .sort((a,b)=>parseFloat(a[1])-parseFloat(b[1]))
+    .slice(0,3).map(([sj,v])=>sj+' (avg '+v+'%)').join(', ');
+  const strongSubjects = Object.entries(subjectAvgs)
+    .sort((a,b)=>parseFloat(b[1])-parseFloat(a[1]))
+    .slice(0,3).map(([sj,v])=>sj+' (avg '+v+'%)').join(', ');
+  const avgDeltaPerMock = s.aggTrend && s.aggTrend.length>=2
+    ? ((s.aggTrend[0]-s.aggTrend[s.aggTrend.length-1])/(s.aggTrend.length-1)).toFixed(1)
+    : 'N/A';
+  const subjectHistoryText = Object.entries(subjectTrends)
+    .map(([sj,vals]) => {
+      const nums = vals.map(v=>parseFloat(v.split(':')[1])||0);
+      const trend = nums.length>=2 ? (nums[nums.length-1]-nums[0]>0?'Improving':nums[nums.length-1]-nums[0]<0?'Declining':'Stable') : 'Single mock';
+      return sj+': '+vals.join(', ')+' | Avg: '+subjectAvgs[sj]+'% | Trend: '+trend;
+    }).join('\n');
 
-AGGREGATE TRAJECTORY: ${aggTrajectory}
-OVERALL TREND: ${s.trendDir} (aggregate has ${improvement} across all mocks)
+  const prompt = 'You are a rigorous, experienced BECE academic analyst at Queen of Apostles Boarding School, Elmina, Ghana (Central Region). Write a REALISTIC, strictly data-driven Trend-Based BECE Prediction Report. Do NOT be overly optimistic. Base EVERY statement strictly on the actual numbers provided. Never fabricate scores or trends not in the data.\n\nGHANA BECE GRADING SYSTEM:\nGrade 1=80-100, Grade 2=75-79, Grade 3=70-74, Grade 4=65-69, Grade 5=60-64, Grade 6=55-59, Grade 7=50-54, Grade 8=45-49, Grade 9=0-44\nBECE AGGREGATE = Best 4 Core Subjects + Best 2 Elective Subjects (LOWER aggregate = BETTER)\nSHS ENTRY BENCHMARK: Aggregate 6-12=Top SHS schools (Achimota, Presec, etc), 13-20=Good SHS, 21-30=Average SHS, 31-36=Limited SHS options, 36+=Serious concern\n\n--- STUDENT DATA ---\nSTUDENT NAME: ' + s.name + '\nCLASS: Basic 9 | ACADEMIC YEAR: 2024/2025\nMOCKS COMPLETED: ' + (s.allMocks||[]).length + '\n\nAGGREGATE HISTORY: ' + aggTrajectory + '\nTREND DIRECTION: ' + s.trendDir + ' (aggregate has ' + improvement + ')\nAVERAGE AGGREGATE CHANGE PER MOCK: ' + avgDeltaPerMock + ' points\nPROJECTED BECE AGGREGATE: ' + projectionNote + '\n\nLATEST MOCK ' + mockNum + ' RESULTS:\nBECE Aggregate: ' + (s.aggregate??'N/A') + ' | Class Average: ' + avg + '%\n' + scores.map(x=>x.subject+': '+x.score+'/100 (Grade '+((gradeToNumeric&&gradeToNumeric(x.grade))||x.grade||'?')+')').join('\n') + '\n\nBEST 4 CORE (contribute to aggregate): ' + (s.best4Core||[]).map(x=>x.subject+' '+x.score+'/100').join(', ') + '\nBEST 2 ELECTIVE (contribute to aggregate): ' + (s.best2Elective||[]).map(x=>x.subject+' '+x.score+'/100').join(', ') + '\n\nSUBJECT HISTORY ACROSS ALL MOCKS:\n' + subjectHistoryText + '\n\nSTRONGEST SUBJECTS: ' + strongSubjects + '\nWEAKEST SUBJECTS: ' + weakSubjects + '\n--- END DATA ---\n\nWrite this EXACT report with these EXACT bold section headings:\n\n**Student:** ' + s.name + ' | **Mocks Analysed:** ' + (s.allMocks||[]).length + ' | **Current Aggregate:** ' + (s.aggregate??'N/A') + ' | **Projected BECE Aggregate:** ' + projectedAgg + '\n\n**1. Overall Performance Assessment**\n3-4 sentences. State clearly and honestly whether the student is on track for good Senior High School entry. Reference exact aggregate numbers and what they mean for SHS placement. If the aggregate is above 24, say so directly.\n\n**2. Mock-by-Mock Progress**\nFor EACH mock in the aggregate history, one line per mock:\nMock [X]: Aggregate [Y] — [what changed from previous mock, by how many points, and the significance]\nEnd with: Overall change from Mock 1 to Mock [latest]: [+/- N points] ([better/worse])\n\n**3. Subject Performance Analysis**\nFor EACH subject, write:\n[Subject]: [latest score]/100, Grade [number] | Cross-mock average: [X]% | Trend: [Improving/Declining/Stable] ([actual change in marks]) | [One specific, realistic action: e.g. needs minimum 70 marks to achieve Grade 3]\n\n**4. Genuine Strengths**\nList only subjects with consistent averages above 55%. Cite actual scores and mock numbers. If fewer than 3 subjects qualify, say so honestly.\n\n**5. Critical Areas Requiring Urgent Attention**\nList subjects with averages below 50% or declining trends. For each, state: current average, required improvement in marks to reach Grade 6 (55+), and one specific study strategy relevant to the Ghana Basic 9 curriculum.\n\n**6. Realistic BECE Aggregate Prediction**\nThis is the most critical section. Be honest and precise:\n- Aggregate trajectory: [state the actual sequence]\n- Average improvement rate: [X points per mock]\n- PROJECTED BECE AGGREGATE (if current trend continues): [specific number]\n- Optimistic scenario (if student works very hard on weak subjects): Aggregate [range] — SHS tier: [what schools this qualifies for]\n- Realistic scenario (modest improvement, current trend continues): Aggregate [range] — SHS tier: [what schools]\n- Pessimistic scenario (no significant change from now): Aggregate [range] — SHS tier: [what schools]\n- To achieve aggregate of 24 or below for good Senior High School entry: State EXACTLY which subject scores need to increase and by how many marks each\n- Honest probability of achieving aggregate ≤24: [X%] — explain why based on the data\n- Honest probability of achieving aggregate ≤30: [X%]\n\n**7. Targeted Action Plan**\n6 specific, measurable actions. Must include: exact subjects to prioritise by day of week, minimum target scores per subject, specific Ghana BECE past questions to focus on (e.g. WAEC past papers), and study hour recommendations.\n\n**8. Final Honest Assessment**\nOne paragraph: summarise the student\'s realistic BECE outlook. Be compassionate but truthful — students need accurate information. End with: one genuine, specific motivational sentence that references ' + s.name + '\'s actual data (e.g. the improvement shown or the specific target needed).\n\nIMPORTANT RULES:\n- Use ONLY the data provided — never invent scores or improvements not in the data\n- If only 1 mock is available, clearly state all predictions are preliminary\n- Never soften aggregate numbers — if aggregate is 38, say 38, not "slightly above target"\n- Ghana SHS context is critical: always link aggregate to actual school placement outcomes\n- Length: 700-900 words. Professional, honest, compassionate tone.';
 
-LATEST MOCK (Mock ${mockNum}) SCORES:
-${scores.map(x=>`${x.subject}: ${x.score}/100 (Grade ${gradeToNumeric(x.grade)||x.grade})`).join('\n')}
-
-BEST 4 CORE (Mock ${mockNum}): ${(s.best4Core||[]).map(x=>x.subject+'='+x.score).join(', ')||'N/A'}
-BEST 2 ELECTIVE (Mock ${mockNum}): ${(s.best2Elective||[]).map(x=>x.subject+'='+x.score).join(', ')||'N/A'}
-LATEST BECE AGGREGATE: ${s.aggregate??'N/A'}
-LATEST AVERAGE: ${avg}%
-
-SUBJECT TRENDS ACROSS ALL MOCKS:
-${subjectTrendText}
-
-Generate a comprehensive, data-driven report with these sections:
-
-**Comprehensive Performance Analysis**
-[3-4 sentences covering overall trend across all mocks, aggregate trajectory, and what it means for BECE readiness]
-
-**Mock-by-Mock Progress Summary**
-[Brief line for each mock showing key highlights and whether it was better/worse than previous]
-
-**Subject Analysis (Latest Mock)**
-[For each subject: score, grade, trend direction (improving/declining/stable), and one specific recommendation]
-
-**Strengths**
-[3-4 bullet points with specific subjects and scores showing consistent strength across mocks]
-
-**Areas for Improvement**
-[3-4 bullet points for subjects with declining or consistently low scores, with targeted study strategies]
-
-**Trend-Based BECE Predictions**
-[This is the most important section - use the actual aggregate trajectory to predict:
-- Expected BECE aggregate range (optimistic, realistic, pessimistic scenarios)
-- Probability of achieving aggregate ≤24 (university entry standard in Ghana)
-- Probability of achieving aggregate ≤30
-- If trend continues unchanged: predicted final aggregate
-- What needs to change to achieve aggregate ≤24
-Be specific and data-driven based on the actual trend numbers]
-
-**Personalised Recommendations**
-[6 specific, actionable recommendations based on the trend analysis - include which subjects to prioritise and by how much]
-
-**Motivation**
-["One powerful personalised motivational quote that references the student's actual improvement trend"]
-
-Use ${s.name}'s actual name and scores throughout. 500-700 words. Professional, warm, data-driven tone.`;
 
   try {
     const res = await fetch('/api/ai/analyze', {
