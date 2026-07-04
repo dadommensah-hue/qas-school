@@ -4026,13 +4026,15 @@ async function runAiStudentAnalysis() {
     return score !== null ? `${subj}: ${score}/100 (class avg: ${subjectAvg})` : `${subj}: Not taken`;
   }).join('\n');
 
-  const prompt = `You are an expert academic analyst for a Ghanaian basic school. Generate a detailed individual performance report for this student.
-
-'GES SCHOOL CATEGORIES (Latest CSSPS):\n'
-    + 'Category A (Agg 6-10): Holy Child School, Wesley Girls, Achimota, Adisadel, Mfantsipim, PRESEC, St. Augustines, Aburi Girls, Opoku Ware, Archbishop Porter Girls\n'
-    + 'Category B (Agg 11-15): Winneba Secondary, Komenda College, Elmina Business Secondary, Edinaman Secondary, Cape Coast Technical, Ghana National College\n'
-    + 'Category C (Agg 16-20): Oguaa SHS, Amissano Catholic, Moree Secondary, Anomabo Secondary, Biriwa SHS\n'
-    + 'Category D (Agg 21-29): District SHS | Category E (Agg 30-36): Very limited | Category F (Agg 37-54): Urgent intervention\n\n'
+  const prompt = 'You are a rigorous BECE academic analyst for Queen of Apostles Boarding School, Elmina, Ghana. Generate a detailed individual student performance report. Always use the student FULL NAME — NEVER use he/she/his/her pronouns.\n\n'
+    + 'BECE GRADING: Grade 1=80-100, 2=75-79, 3=70-74, 4=65-69, 5=60-64, 6=55-59, 7=50-54, 8=45-49, 9=0-44. BECE aggregate max = 54. Lower is better.\n\n'
+    + 'GES SCHOOL PLACEMENT CATEGORIES (Latest CSSPS):\n'
+    + 'Category A (Agg 6-10): Holy Child School, Wesley Girls High School, Achimota School, Adisadel College, Mfantsipim School, PRESEC-Legon, St. Augustines College, Aburi Girls, Opoku Ware School, Archbishop Porter Girls\n'
+    + 'Category B (Agg 11-15): Winneba Secondary, Komenda College, Elmina Business Secondary, Edinaman Secondary, Cape Coast Technical Institute, Ghana National College\n'
+    + 'Category C (Agg 16-20): Oguaa SHS Cape Coast, Amissano Catholic Secondary, Moree Secondary, Anomabo Secondary, Biriwa SHS\n'
+    + 'Category D (Agg 21-29): District and community SHS schools\n'
+    + 'Category E (Agg 30-36): Very limited SHS options\n'
+    + 'Category F (Agg 37-54): At serious risk — urgent intervention needed\n\n'
     + 'SCHOOL: Queen of Apostles Boarding School, Elmina\n'
     + 'EXAMINATION: Mock ' + stats.mockNum + ' | CLASS: Basic 9 | YEAR: 2024/2025\n\n'
     + 'STUDENT: ' + student.full_name + '\n'
@@ -16186,61 +16188,30 @@ async function runAiStudentAnalysis() {
     return score !== null ? `${subj}: ${score}/100 (class avg: ${subjectAvg})` : `${subj}: Not taken`;
   }).join('\n');
 
-  const prompt = `You are an expert academic analyst for a Ghanaian basic school. Generate a detailed individual performance report for this student.
-
-'GES SCHOOL CATEGORIES (Latest CSSPS):\n'
+  const prompt = 'You are a rigorous BECE academic analyst for Queen of Apostles Boarding School, Elmina, Ghana. Generate a detailed individual student performance report. Always use the student FULL NAME — NEVER use he/she/his/her pronouns.\n\n'
+    + 'BECE GRADING: Grade 1=80-100, 2=75-79, 3=70-74, 4=65-69, 5=60-64, 6=55-59, 7=50-54, 8=45-49, 9=0-44. BECE aggregate max = 54. Lower = Better.\n\n'
+    + 'GES SCHOOL CATEGORIES (Latest CSSPS):\n'
     + 'Category A (Agg 6-10): Holy Child School, Wesley Girls, Achimota, Adisadel, Mfantsipim, PRESEC, St. Augustines, Aburi Girls, Opoku Ware, Archbishop Porter Girls\n'
     + 'Category B (Agg 11-15): Winneba Secondary, Komenda College, Elmina Business Secondary, Edinaman Secondary, Cape Coast Technical, Ghana National College\n'
-    + 'Category C (Agg 16-20): Oguaa SHS, Amissano Catholic, Moree Secondary, Anomabo Secondary, Biriwa SHS\n'
-    + 'Category D (Agg 21-29): District SHS | Category E (Agg 30-36): Very limited | Category F (Agg 37-54): Urgent intervention\n\n'
-    + `
-SCHOOL: Queen of Apostles Boarding School, Elmina
-EXAMINATION: Mock ${stats.mockNum} | CLASS: Basic 9 | YEAR: 2024/2025
-
-STUDENT: ${student.full_name}
-Overall average: ${avg}% | BECE Aggregate: ${student.aggregate ?? 'N/A'}/54 | Class rank: ${rank} of ${students.length}
-
-SUBJECT SCORES (with class averages for comparison):
-${subjectLines}
-
-CLASS CONTEXT:
-Class average: ${stats.classAvg}% | Pass rate: ${stats.passRate}%
-Best aggregate: ${sortedClass[0]?.aggregate ?? 'N/A'}/54 | Weakest aggregate: ${sortedClass[sortedClass.length-1]?.aggregate ?? 'N/A'}/54
-
-BECE aggregate max is 54. Lower is better. Always write aggregates as X/54.
-ALWAYS use ${student.full_name} by full name — NEVER use he/she/his/her pronouns.
-
-Write this report with these EXACT bold headings:
-
-**${student.full_name} — Mock ${stats.mockNum} Performance Report**
-
-**Overall Performance**
-State which GES Category ${student.full_name}'s aggregate of ${student.aggregate ?? 'N/A'}/54 places ${student.full_name} in. Name real schools accessible at this aggregate. Be honest. 2-3 sentences.
-
-**Subject Analysis**
-For EACH subject: [Subject]: [score]/100 Grade [X] — [one sentence for ${student.full_name} with minimum target score to improve one grade level and specific study action]
-
-**Strengths**
-Only subjects above 55%. Use ${student.full_name}'s name. Cite exact scores.
-
-**Areas for Improvement**
-Subjects below 55%. State exact marks ${student.full_name} needs to reach Grade 6 (55 marks). Be specific.
-
-**BECE Prediction (Mock ${stats.mockNum})**
-Current: ${student.aggregate ?? 'N/A'}/54 → GES Category [X]
-If ${student.full_name} maintains current performance: Expected aggregate [range]/54 → [Category] → Schools: [2-3 real school names]
-If ${student.full_name} improves weak subjects: Optimistic aggregate [X]/54 → [Category] → Schools: [2-3 real names]
-To reach Category A (≤10/54): ${student.full_name} must improve [specific subjects] by [specific marks]
-To reach Category B (≤15/54): ${student.full_name} must improve [specific subjects] by [specific marks]
-
-**Personalised Recommendations for ${student.full_name}**
-5 specific actions using ${student.full_name}'s name. Include daily schedule and target scores for next mock.
-
-**Motivation**
-One genuine motivational sentence using ${student.full_name}'s name referencing an actual score strength.
-
-RULES: No pronouns — use ${student.full_name} throughout. Aggregates always as X/54. Real GES schools only. 450-650 words.\`;
-
+    + 'Category C (Agg 16-20): Oguaa SHS, Amissano Catholic Secondary, Moree Secondary, Anomabo Secondary, Biriwa SHS\n'
+    + 'Category D (Agg 21-29): District/Community SHS | Category E (Agg 30-36): Very limited | Category F (Agg 37-54): Urgent intervention\n\n'
+    + 'SCHOOL: Queen of Apostles Boarding School, Elmina | EXAM: Mock ' + stats.mockNum + ' | CLASS: Basic 9 | YEAR: 2024/2025\n\n'
+    + 'STUDENT: ' + student.full_name + '\n'
+    + 'Average: ' + avg + '% | BECE Aggregate: ' + (student.aggregate??'N/A') + '/54 | Class rank: ' + rank + ' of ' + students.length + '\n\n'
+    + 'SUBJECT SCORES:\n' + subjectLines + '\n\n'
+    + 'BEST 4 CORE: ' + (student.best4Core||[]).map(x=>x.subject+'='+x.score).join(', ') + '\n'
+    + 'BEST 2 ELECTIVE: ' + (student.best2Elective||[]).map(x=>x.subject+'='+x.score).join(', ') + '\n'
+    + 'CLASS CONTEXT: Avg=' + stats.classAvg + '% | Best agg=' + (sortedClass[0]?.aggregate??'N/A') + '/54 | Worst agg=' + (sortedClass[sortedClass.length-1]?.aggregate??'N/A') + '/54\n\n'
+    + 'Always use ' + student.full_name + ' by name. Write aggregates as X/54. Use real GES schools only.\n\n'
+    + '**' + student.full_name + ' — Mock ' + stats.mockNum + ' Report**\n\n'
+    + '**Overall Performance** — 2-3 sentences. State GES Category for aggregate ' + (student.aggregate??'N/A') + '/54. Name actual schools. Be honest.\n\n'
+    + '**Subject Analysis** — For each subject: score/100 Grade X, one specific action using ' + student.full_name + 's name and target marks to improve one grade.\n\n'
+    + '**Strengths** — Only subjects above 55%. Cite exact scores. Use ' + student.full_name + 's name.\n\n'
+    + '**Areas for Improvement** — Below 55% subjects. Exact marks needed to reach Grade 6. Use ' + student.full_name + 's name.\n\n'
+    + '**BECE Prediction** — Current: ' + (student.aggregate??'N/A') + '/54 → GES Category. If maintains: range/54 → Category → 2-3 real schools. If improves: optimistic range/54 → Category → 2-3 real schools. To reach Cat A: exact subjects and marks. To reach Cat B: exact subjects and marks.\n\n'
+    + '**Recommendations for ' + student.full_name + '** — 5 specific actions with target scores.\n\n'
+    + '**Motivation** — One sentence using ' + student.full_name + 's name referencing an actual score strength.\n\n'
+    + 'No pronouns. Aggregates as X/54. Real GES schools only. 450-650 words.';
 
   try {
     const res = await fetch('/api/ai/analyze', {
