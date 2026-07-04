@@ -4066,10 +4066,27 @@ async function runAiStudentAnalysis() {
     + '**Motivation**\n'
     + 'One genuine motivational sentence using ' + student.full_name + 's name and referencing an actual score.\n\n'
     + 'RULES: No pronouns. Aggregates as X/54. Real GES schools only. 450-650 words.';
-scale=1.0"/>
-<title>Queen of Apostles Boarding School – Management System</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  try {
+    const res = await fetch('/api/ai/analyze', {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+TOKEN},
+      body: JSON.stringify({prompt, max_tokens:1200})
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error||'AI error');
+    const text = data.content?.[0]?.text;
+    if (!text) throw new Error('Empty response from AI');
+    document.getElementById('aiStudentText').innerHTML = formatAiReport(text);
+    document.getElementById('aiStudentOut').style.display = 'block';
+    document.getElementById('aiStudentOut').scrollIntoView({behavior:'smooth',block:'start'});
+  } catch(e) {
+    alert('Student analysis failed: ' + (e.message||'Unknown error'));
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-robot"></i> Generate Student Report';
+  }
+}
+</script>
+
 <style>
 :root{
   --primary:#2563eb;--primary-dark:#1d4ed8;--primary-light:#dbeafe;
