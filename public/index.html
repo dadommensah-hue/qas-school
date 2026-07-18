@@ -1555,7 +1555,7 @@ async function mockExam() {
     <button class="tab" onclick="mockTab(this,'mockReport')">📄 Generate Report</button>
     <button class="tab" onclick="mockTab(this,'mockAnalytics')">📈 Analytics</button>
     <button class="tab" onclick="mockTab(this,'studentAnalytics')">📊 Student Analytics</button>
-    <button class="tab" onclick="mockTab(this,'aiAnalysis')" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border-color:transparent;">🤖 AI Analysis</button>
+
   </div>
   <div id="mockResults"><div class="loading-overlay"><div class="spinner"></div></div></div>
   <div id="mockEntry" style="display:none;"></div>
@@ -1603,13 +1603,13 @@ async function mockExam() {
 function mockTab(btn, sectionId) {
   btn.closest('.tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   btn.classList.add('active');
-  ['mockResults','mockEntry','mockReport','mockAnalytics','studentAnalytics','aiAnalysis'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display=id===sectionId?'':'none'; });
+  ['mockResults','mockEntry','mockReport','mockAnalytics','studentAnalytics'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display=id===sectionId?'':'none'; });
   if (sectionId==='mockEntry') loadMockEntry();
   if (sectionId==='mockResults') loadMockResults();
   if (sectionId==='mockAnalytics') loadMockAnalytics();
   if (sectionId==='studentAnalytics') initStudentAnalytics();
   if (sectionId==='mockReport') previewMockReport();
-  if (sectionId==='aiAnalysis') loadAiAnalysis();
+
 }
 
 async function loadMockResults() {
@@ -2481,6 +2481,7 @@ async function studentDashboard() {
         ${[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].map(n=>`<option value="${n}">Mock ${n}</option>`).join('')}
       </select>
       <button class="btn btn-outline btn-sm" onclick="reloadDashboardMock()"><i class="fas fa-sync"></i></button>
+      <button class="btn btn-sm" onclick="downloadBasic9MockPDF()" style="background:#dc2626;color:#fff;border-color:#dc2626;font-weight:700;"><i class="fas fa-file-pdf"></i> Download PDF</button>
     </div>
   </div>`:''}
   <div class="card" id="sd_subjects_card">
@@ -2527,8 +2528,18 @@ async function studentDashboard() {
         document.getElementById('sd_avg').textContent = mockData.aggregate != null ? 'Agg: '+mockData.aggregate : '—';
         const avg9 = (mockData.scores||[]).length ? Math.round((mockData.scores||[]).reduce((a,s)=>a+(parseFloat(s.score)||0),0)/(mockData.scores||[]).length) : 0;
     document.getElementById('sd_grade').textContent = avg9 ? avg9+'% avg' : '—';
-    document.getElementById('sd_pos').textContent = mockData.aggregate != null ? (mockData.aggregate<=15?'Excellent':mockData.aggregate<=24?'Good':mockData.aggregate<=29?'Fair':'Needs Work') : '—';
-        document.getElementById('sd_subjects').innerHTML = buildMockReportCard(mockData, mockNum, USER.full_name, USER.student_id, USER.class);
+    // Fetch class ranking to get actual position
+    try {
+      const classResults = await get('/mock/class?mock_number='+mockNum+'&class=Basic 9');
+      const myPos = (classResults||[]).findIndex(r=>String(r.id)===String(USER.id));
+      const totalStudents = (classResults||[]).filter(r=>r.aggregate!=null).length;
+      document.getElementById('sd_pos').textContent = myPos>=0 ? (myPos+1)+' / '+totalStudents : '—';
+    } catch(e2) {
+      document.getElementById('sd_pos').textContent = mockData.aggregate != null ? (mockData.aggregate<=15?'Top':mockData.aggregate<=24?'Good':'—') : '—';
+    }
+        // get current position from sd_pos
+      const _pos1 = document.getElementById('sd_pos')?.textContent||'—';
+      document.getElementById('sd_subjects').innerHTML = buildMockReportCard(mockData, mockNum, USER.full_name, USER.student_id, USER.class, _pos1);
       } catch(e3) {
         document.getElementById('sd_subjects').innerHTML = '<div class="empty-state"><i class="fas fa-award"></i><h4>No mock results yet</h4></div>';
       }
@@ -2547,7 +2558,7 @@ async function studentDashboard() {
 }
 
 
-function buildMockReportCard(mockData, mockNum, studentName, studentId, studentClass) {
+function buildMockReportCard(mockData, mockNum, studentName, studentId, studentClass, classPos) {
   if (!(mockData.scores||[]).length) {
     return '<div class="empty-state"><i class="fas fa-award"></i><h4>No Mock '+mockNum+' results yet</h4><p>Scores have not been entered for this mock examination.</p></div>';
   }
@@ -2578,9 +2589,9 @@ function buildMockReportCard(mockData, mockNum, studentName, studentId, studentC
     <div style="text-align:center;padding:28px 24px 20px;background:#fff;border-bottom:3px solid #1e3a5f;">
       <img src="/logo.png" onerror="this.style.display='none'" style="width:80px;height:80px;object-fit:contain;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto;" />
       <div style="font-size:22px;font-weight:800;color:#1e3a5f;letter-spacing:.5px;">QUEEN OF APOSTLES BOARDING SCHOOL</div>
-      <div style="font-size:13px;color:#6b7280;margin-top:4px;">P.O. Box 5, Elmina</div>
+      <div style="font-size:15px;color:#374151;font-weight:700;margin-top:4px;">P.O. Box 5, Elmina</div>
       <div style="margin-top:12px;display:inline-block;background:#b45309;color:#fff;padding:7px 28px;border-radius:6px;font-size:13px;font-weight:700;letter-spacing:.5px;">
-        MOCK ${mockNum} EXAMINATION REPORT – 2024/2025
+        MOCK ${mockNum} EXAMINATION REPORT
       </div>
     </div>
 
@@ -2590,7 +2601,7 @@ function buildMockReportCard(mockData, mockNum, studentName, studentId, studentC
         <div><span style="color:#6b7280;font-weight:600;">Name:</span> <strong>${studentName}</strong></div>
         <div><span style="color:#6b7280;font-weight:600;">Student ID:</span> <strong>${studentId||'—'}</strong></div>
         <div><span style="color:#6b7280;font-weight:600;">Class:</span> <strong>${studentClass}</strong></div>
-        <div><span style="color:#6b7280;font-weight:600;">Academic Year:</span> <strong>2024/2025</strong></div>
+        <div><span style="color:#6b7280;font-weight:600;">Position:</span> <strong>${classPos||'—'}</strong></div>
       </div>
     </div>
 
@@ -2649,7 +2660,7 @@ function buildMockReportCard(mockData, mockNum, studentName, studentId, studentC
     <div style="padding:16px 28px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
         <div style="font-size:14px;"><span style="color:#6b7280;font-weight:600;">Overall Average:</span> <strong style="font-size:18px;color:#d97706;">${avg}%</strong></div>
-        <div style="font-size:11px;color:#9ca3af;">★ Used in BECE aggregate | Grade: 1=80-100, 2=75-79, 3=70-74, 4=65-69, 5=60-64, 6=55-59, 7=50-54, 8=45-49, 9=0-44</div>
+        <div style="font-size:13px;color:#374151;font-weight:700;">★ Used in BECE aggregate | Grade: 1=80-100, 2=75-79, 3=70-74, 4=65-69, 5=60-64, 6=55-59, 7=50-54, 8=45-49, 9=0-44</div>
       </div>
     </div>
   </div>`;
@@ -2664,8 +2675,15 @@ async function reloadDashboardMock() {
     window._myMockData = mockData; // cache for AI insights
     document.getElementById('sd_avg').textContent = mockData.aggregate != null ? 'Agg: '+mockData.aggregate : '—';
     document.getElementById('sd_grade').textContent = mockData.aggregate != null ? (mockData.aggregate<=20?'Excellent':mockData.aggregate<=30?'Good':'Fair') : '—';
-    const mockNum2 = document.getElementById('sd_mock_num_top')?.value || 1;
-  document.getElementById('sd_subjects').innerHTML = buildMockReportCard(mockData, mockNum, USER.full_name, USER.student_id, USER.class);
+    // Fetch and display actual class position
+    try {
+      const classResults2 = await get('/mock/class?mock_number='+mockNum+'&class=Basic 9');
+      const myPos2 = (classResults2||[]).findIndex(r=>String(r.id)===String(USER.id));
+      const total2 = (classResults2||[]).filter(r=>r.aggregate!=null).length;
+      document.getElementById('sd_pos').textContent = myPos2>=0 ? (myPos2+1)+' / '+total2 : '—';
+    } catch(e2) {}
+  const _pos2 = document.getElementById('sd_pos')?.textContent||'—';
+  document.getElementById('sd_subjects').innerHTML = buildMockReportCard(mockData, mockNum, USER.full_name, USER.student_id, USER.class, _pos2);
   } catch(e) {
     document.getElementById('sd_subjects').innerHTML = '<div class="empty-state"><i class="fas fa-award"></i><h4>No mock results yet</h4></div>';
   }
