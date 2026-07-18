@@ -2528,13 +2528,7 @@ async function studentDashboard() {
         const avg9 = (mockData.scores||[]).length ? Math.round((mockData.scores||[]).reduce((a,s)=>a+(parseFloat(s.score)||0),0)/(mockData.scores||[]).length) : 0;
     document.getElementById('sd_grade').textContent = avg9 ? avg9+'% avg' : '—';
     document.getElementById('sd_pos').textContent = mockData.aggregate != null ? (mockData.aggregate<=15?'Excellent':mockData.aggregate<=24?'Good':mockData.aggregate<=29?'Fair':'Needs Work') : '—';
-        document.getElementById('sd_subjects').innerHTML = (mockData.scores||[]).length ?
-        '<table><thead><tr><th>Subject</th><th>Type</th><th>Mark (/100)</th><th>Grade</th></tr></thead><tbody>'
-        +(mockData.scores||[]).map(function(s,i){
-          const numGrade = gradeToNumeric(s.grade);
-          return '<tr style="background:'+(i%2===0?'#f9fafb':'#fff')+'"><td><strong>'+s.subject+'</strong></td><td>'+(CORE_SUBJECTS.includes(s.subject)?'Core':'Elective')+'</td><td style="font-weight:700;">'+s.score+'</td><td style="font-weight:700;">'+numGrade+'</td></tr>';
-        }).join('')
-        +'</tbody></table>' : '<div class="empty-state"><i class="fas fa-award"></i><h4>No mock results yet</h4></div>';
+        document.getElementById('sd_subjects').innerHTML = buildMockReportCard(mockData, mockNum, USER.full_name, USER.student_id, USER.class);
       } catch(e3) {
         document.getElementById('sd_subjects').innerHTML = '<div class="empty-state"><i class="fas fa-award"></i><h4>No mock results yet</h4></div>';
       }
@@ -2552,6 +2546,115 @@ async function studentDashboard() {
   } catch(e){ document.getElementById('sd_subjects').innerHTML=`<div class="empty-state"><i class="fas fa-star"></i><h4>No grades yet</h4></div>`; }
 }
 
+
+function buildMockReportCard(mockData, mockNum, studentName, studentId, studentClass) {
+  if (!(mockData.scores||[]).length) {
+    return '<div class="empty-state"><i class="fas fa-award"></i><h4>No Mock '+mockNum+' results yet</h4><p>Scores have not been entered for this mock examination.</p></div>';
+  }
+  const agg = mockData.aggregate ?? '—';
+  const aggColor = agg<=15?'#16a34a':agg<=24?'#2563eb':agg<=29?'#d97706':agg<=36?'#ea580c':'#dc2626';
+  const aggLabel = agg<=10?'Excellent – Category A':agg<=15?'Good – Category B':agg<=20?'Good – Category C':agg<=29?'Average – Category D':agg<=36?'Limited – Category E':'At Risk – Category F';
+  const core = (mockData.scores||[]).filter(s=>CORE_SUBJECTS.includes(s.subject));
+  const elec = (mockData.scores||[]).filter(s=>!CORE_SUBJECTS.includes(s.subject));
+  const all = (mockData.scores||[]).sort((a,b)=>a.subject.localeCompare(b.subject));
+  const avg = all.length ? Math.round(all.reduce((t,s)=>t+(parseFloat(s.score)||0),0)/all.length) : 0;
+
+  function getRemarks(score) {
+    const s = parseFloat(score)||0;
+    if (s>=80) return {r:'Excellent',c:'#16a34a'};
+    if (s>=75) return {r:'Very Good',c:'#2563eb'};
+    if (s>=70) return {r:'Good',c:'#0891b2'};
+    if (s>=65) return {r:'Credit',c:'#7c3aed'};
+    if (s>=60) return {r:'Credit',c:'#7c3aed'};
+    if (s>=55) return {r:'Pass',c:'#d97706'};
+    if (s>=50) return {r:'Pass',c:'#d97706'};
+    if (s>=45) return {r:'Weak Pass',c:'#ea580c'};
+    return {r:'Fail',c:'#dc2626'};
+  }
+
+  return `<div style="font-family:'Segoe UI',Arial,sans-serif;max-width:780px;margin:0 auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.1);overflow:hidden;">
+
+    <!-- HEADER -->
+    <div style="text-align:center;padding:28px 24px 20px;background:#fff;border-bottom:3px solid #1e3a5f;">
+      <img src="/logo.png" onerror="this.style.display='none'" style="width:80px;height:80px;object-fit:contain;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto;" />
+      <div style="font-size:22px;font-weight:800;color:#1e3a5f;letter-spacing:.5px;">QUEEN OF APOSTLES BOARDING SCHOOL</div>
+      <div style="font-size:13px;color:#6b7280;margin-top:4px;">P.O. Box 5, Elmina</div>
+      <div style="margin-top:12px;display:inline-block;background:#b45309;color:#fff;padding:7px 28px;border-radius:6px;font-size:13px;font-weight:700;letter-spacing:.5px;">
+        MOCK ${mockNum} EXAMINATION REPORT – 2024/2025
+      </div>
+    </div>
+
+    <!-- STUDENT INFO -->
+    <div style="padding:18px 28px;background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:14px;">
+        <div><span style="color:#6b7280;font-weight:600;">Name:</span> <strong>${studentName}</strong></div>
+        <div><span style="color:#6b7280;font-weight:600;">Student ID:</span> <strong>${studentId||'—'}</strong></div>
+        <div><span style="color:#6b7280;font-weight:600;">Class:</span> <strong>${studentClass}</strong></div>
+        <div><span style="color:#6b7280;font-weight:600;">Academic Year:</span> <strong>2024/2025</strong></div>
+      </div>
+    </div>
+
+    <!-- AGGREGATE BANNER -->
+    <div style="padding:18px 28px;background:#fff;border-bottom:1px solid #e2e8f0;">
+      <div style="display:grid;grid-template-columns:1fr 2fr 2fr;gap:16px;align-items:center;">
+        <div style="text-align:center;background:#f8fafc;border-radius:12px;padding:14px 10px;border:2px solid ${aggColor}22;">
+          <div style="font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:700;letter-spacing:.05em;">BECE Aggregate</div>
+          <div style="font-size:40px;font-weight:800;color:${aggColor};line-height:1.1;">${agg}</div>
+          <div style="font-size:11px;color:${aggColor};font-weight:600;margin-top:2px;">${aggLabel}</div>
+        </div>
+        <div style="background:#f0f9ff;border-radius:12px;padding:14px;border-left:4px solid #2563eb;">
+          <div style="font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:6px;">Best 4 Core Subjects</div>
+          ${(mockData.best4Core||[]).map(s=>`<div style="font-size:13px;font-weight:600;color:#1e3a5f;padding:2px 0;">${s.subject} <span style="color:#2563eb;">${s.score}/100</span></div>`).join('')||'<div style="color:#9ca3af;">—</div>'}
+        </div>
+        <div style="background:#f5f3ff;border-radius:12px;padding:14px;border-left:4px solid #7c3aed;">
+          <div style="font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:6px;">Best 2 Elective Subjects</div>
+          ${(mockData.best2Elective||[]).map(s=>`<div style="font-size:13px;font-weight:600;color:#1e3a5f;padding:2px 0;">${s.subject} <span style="color:#7c3aed;">${s.score}/100</span></div>`).join('')||'<div style="color:#9ca3af;">—</div>'}
+        </div>
+      </div>
+    </div>
+
+    <!-- SUBJECTS TABLE -->
+    <div style="padding:20px 28px;">
+      <table style="width:100%;border-collapse:collapse;font-size:14px;">
+        <thead>
+          <tr style="background:#1e3a5f;color:#fff;">
+            <th style="padding:11px 14px;text-align:left;font-weight:700;">SUBJECT</th>
+            <th style="padding:11px 14px;text-align:center;font-weight:700;">TYPE</th>
+            <th style="padding:11px 14px;text-align:center;font-weight:700;">MARK (/100)</th>
+            <th style="padding:11px 14px;text-align:center;font-weight:700;">GRADE</th>
+            <th style="padding:11px 14px;text-align:center;font-weight:700;">REMARKS</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${all.map((s,i) => {
+            const ng = gradeToNumeric(s.grade);
+            const rem = getRemarks(s.score);
+            const used = (mockData.best4Core||[]).some(c=>c.subject===s.subject)||(mockData.best2Elective||[]).some(c=>c.subject===s.subject);
+            const isCore = CORE_SUBJECTS.includes(s.subject);
+            const scoreNum = parseFloat(s.score)||0;
+            const scoreColor = scoreNum>=70?'#16a34a':scoreNum>=55?'#d97706':'#dc2626';
+            return '<tr style="background:'+(i%2===0?'#fff':'#f8fafc')+';border-bottom:1px solid #e2e8f0;">'
+              +'<td style="padding:11px 14px;font-weight:'+(used?'700':'500')+';color:#1e3a5f;">'+(used?'★ ':'')+s.subject+'</td>'
+              +'<td style="padding:11px 14px;text-align:center;"><span style="background:'+(isCore?'#dbeafe':'#ede9fe')+';color:'+(isCore?'#1d4ed8':'#6d28d9')+';padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">'+(isCore?'Core':'Elective')+'</span></td>'
+              +'<td style="padding:11px 14px;text-align:center;font-size:17px;font-weight:800;color:'+scoreColor+';">'+s.score+'</td>'
+              +'<td style="padding:11px 14px;text-align:center;font-size:17px;font-weight:800;color:#dc2626;">'+ng+'</td>'
+              +'<td style="padding:11px 14px;text-align:center;font-weight:600;color:'+rem.c+';">'+rem.r+'</td>'
+              +'</tr>';
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- FOOTER SUMMARY -->
+    <div style="padding:16px 28px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div style="font-size:14px;"><span style="color:#6b7280;font-weight:600;">Overall Average:</span> <strong style="font-size:18px;color:#d97706;">${avg}%</strong></div>
+        <div style="font-size:11px;color:#9ca3af;">★ Used in BECE aggregate | Grade: 1=80-100, 2=75-79, 3=70-74, 4=65-69, 5=60-64, 6=55-59, 7=50-54, 8=45-49, 9=0-44</div>
+      </div>
+    </div>
+  </div>`;
+}
+
 // Reload mock results on dashboard when mock number dropdown changes
 async function reloadDashboardMock() {
   const mockNum = document.getElementById('sd_mock_num_top')?.value || document.getElementById('sd_mock_num')?.value || 1;
@@ -2562,36 +2665,7 @@ async function reloadDashboardMock() {
     document.getElementById('sd_avg').textContent = mockData.aggregate != null ? 'Agg: '+mockData.aggregate : '—';
     document.getElementById('sd_grade').textContent = mockData.aggregate != null ? (mockData.aggregate<=20?'Excellent':mockData.aggregate<=30?'Good':'Fair') : '—';
     const mockNum2 = document.getElementById('sd_mock_num_top')?.value || 1;
-  if ((mockData.scores||[]).length) {
-    const core = (mockData.scores||[]).filter(s=>CORE_SUBJECTS.includes(s.subject));
-    const elec = (mockData.scores||[]).filter(s=>!CORE_SUBJECTS.includes(s.subject));
-    const aggColor = mockData.aggregate<=15?'#16a34a':mockData.aggregate<=24?'#d97706':mockData.aggregate<=29?'#ea580c':'#dc2626';
-    document.getElementById('sd_subjects').innerHTML = `
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;padding:12px;background:#f8fafc;border-radius:8px;">
-        <div style="text-align:center;"><div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">BECE Aggregate</div><div style="font-size:28px;font-weight:700;color:${aggColor};">${mockData.aggregate??'—'}</div></div>
-        <div style="text-align:center;"><div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Best 4 Core</div><div style="font-size:13px;font-weight:600;">${(mockData.best4Core||[]).map(s=>s.subject.split(' ')[0]).join(', ')||'—'}</div></div>
-        <div style="text-align:center;"><div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Best 2 Elective</div><div style="font-size:13px;font-weight:600;">${(mockData.best2Elective||[]).map(s=>s.subject.split(' ')[0]).join(', ')||'—'}</div></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <div>
-          <div style="font-size:12px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;padding:6px 10px;background:#e8f0fe;border-radius:6px;">📗 Core Subjects</div>
-          <table style="width:100%;border-collapse:collapse;font-size:13px;">
-            <thead><tr style="background:#1e3a5f;color:#fff;"><th style="padding:7px 8px;text-align:left;">Subject</th><th style="padding:7px 8px;text-align:center;">Mark</th><th style="padding:7px 8px;text-align:center;">Grade</th></tr></thead>
-            <tbody>${core.map((s,i)=>{const ng=gradeToNumeric(s.grade);const used=(mockData.best4Core||[]).some(c=>c.subject===s.subject);return `<tr style="background:${i%2===0?'#f9fafb':'#fff'};${used?'font-weight:700;':''}"><td style="padding:7px 8px;">${s.subject}${used?' ★':''}</td><td style="padding:7px 8px;text-align:center;color:#2563eb;font-weight:700;">${s.score}</td><td style="padding:7px 8px;text-align:center;color:#dc2626;font-weight:700;">${ng}</td></tr>`;}).join('')}</tbody>
-          </table>
-        </div>
-        <div>
-          <div style="font-size:12px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;padding:6px 10px;background:#ede9fe;border-radius:6px;">📘 Elective Subjects</div>
-          <table style="width:100%;border-collapse:collapse;font-size:13px;">
-            <thead><tr style="background:#7c3aed;color:#fff;"><th style="padding:7px 8px;text-align:left;">Subject</th><th style="padding:7px 8px;text-align:center;">Mark</th><th style="padding:7px 8px;text-align:center;">Grade</th></tr></thead>
-            <tbody>${elec.map((s,i)=>{const ng=gradeToNumeric(s.grade);const used=(mockData.best2Elective||[]).some(c=>c.subject===s.subject);return `<tr style="background:${i%2===0?'#f9fafb':'#fff'};${used?'font-weight:700;':''}"><td style="padding:7px 8px;">${s.subject}${used?' ★':''}</td><td style="padding:7px 8px;text-align:center;color:#2563eb;font-weight:700;">${s.score}</td><td style="padding:7px 8px;text-align:center;color:#dc2626;font-weight:700;">${ng}</td></tr>`;}).join('')}</tbody>
-          </table>
-        </div>
-      </div>
-      <p style="font-size:11px;color:#6b7280;margin-top:8px;text-align:center;">★ Used in aggregate | Grade: 1=80-100, 2=75-79, 3=70-74, 4=65-69, 5=60-64, 6=55-59, 7=50-54, 8=45-49, 9=0-44</p>`;
-  } else {
-    document.getElementById('sd_subjects').innerHTML = '<div class="empty-state"><i class="fas fa-award"></i><h4>No Mock '+mockNum2+' results yet</h4><p>Scores have not been entered for this mock examination.</p></div>';
-  }
+  document.getElementById('sd_subjects').innerHTML = buildMockReportCard(mockData, mockNum, USER.full_name, USER.student_id, USER.class);
   } catch(e) {
     document.getElementById('sd_subjects').innerHTML = '<div class="empty-state"><i class="fas fa-award"></i><h4>No mock results yet</h4></div>';
   }
