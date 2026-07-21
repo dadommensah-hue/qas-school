@@ -119,6 +119,8 @@ router.get('/analytics/term-comparison', authMiddleware, analytics.termCompariso
 router.get('/reports/student/:id', authMiddleware, reports.studentReport);
 router.get('/reports/class/:class', authMiddleware, reports.classReport);
 router.get('/reports/mock/class', authMiddleware, reports.mockClassReport);
+router.get('/reports/mock/student/:id', authMiddleware, reports.mockStudentReport);
+router.get('/reports/midterm/:id', authMiddleware, reports.midtermStudentReport);
 
 
 // ── MIDTERM GRADES (Basic 1-8) ──

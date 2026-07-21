@@ -2730,7 +2730,7 @@ async function studentMidtermResults() {
     document.getElementById('pageContent').innerHTML =
     '<div class="portal-profile-banner"><div class="portal-avatar">'+(USER.profile_photo?'<img src="'+USER.profile_photo+'"/>':'<div style="width:100%;height:100%;background:linear-gradient(135deg,var(--primary),var(--purple));display:flex;align-items:center;justify-content:center;color:#fff;font-size:28px;font-weight:700;">'+USER.full_name[0]+'</div>')+'</div>'
     +'<div class="portal-info"><h2>'+USER.full_name+'</h2><p>'+USER.student_id+' · '+USER.class+'</p><span class="portal-badge">Mid-Term Report</span></div></div>'
-    +'<div class="card" style="margin-bottom:14px;"><div class="card-body" style="display:flex;align-items:center;gap:10px;">'+termSel+'<button class="btn btn-outline btn-sm" onclick="loadStudentMidtermReport()"><i class="fas fa-sync"></i></button></div></div>'
+    +'<div class="card" style="margin-bottom:14px;"><div class="card-body" style="display:flex;align-items:center;gap:10px;">'+termSel+'<button class="btn btn-outline btn-sm" onclick="loadStudentMidtermReport()"><i class="fas fa-sync"></i></button><button class="btn btn-sm" onclick="downloadMidtermPDF()" style="background:#dc2626;color:#fff;border-color:#dc2626;font-weight:700;"><i class="fas fa-file-pdf"></i> Download PDF</button></div></div>'
     +'<div id="mtReportContent"><div class="loading-overlay"><div class="spinner"></div></div></div>';
     loadStudentMidtermReport();
   } catch(e){ toast(e.message,'error'); }
@@ -4180,27 +4180,62 @@ async function runAiStudentAnalysis() {
 
 async function downloadBasic9MockPDF() {
   const mockNum = parseInt(document.getElementById('sd_mock_num_top')?.value || 1);
-  const reportEl = document.getElementById('sd_subjects');
-  if (!reportEl || !reportEl.innerHTML.trim() || reportEl.innerHTML.includes('No Mock')) {
-    alert('Please load mock results first.'); return;
+  if (!USER || !USER.id) { alert('Please log in first.'); return; }
+  try {
+    const btn = event?.target;
+    if (btn) { btn.disabled = true; btn.textContent = 'Generating...'; }
+    const res = await fetch(`/api/reports/mock/student/${USER.id}?mock_number=${mockNum}`, {
+      headers: { 'Authorization': 'Bearer ' + TOKEN }
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(()=>({error:'PDF generation failed'}));
+      throw new Error(err.error || 'PDF failed');
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Mock${mockNum}_Report_${USER.student_id||USER.id}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 5000);
+  } catch(e) {
+    alert('Download failed: ' + e.message);
+  } finally {
+    const btn = document.querySelector('[onclick="downloadBasic9MockPDF()"]');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-file-pdf"></i> Download PDF'; }
   }
-  const logoUrl = window.location.origin + '/logo.png';
-  const printHtml = '<!DOCTYPE html><html lang="en"><head>'
-    + '<meta charset="UTF-8"/>'
-    + '<title>Mock ' + mockNum + ' Report - ' + ((USER&&USER.full_name)||'Student') + '</title>'
-    + '<style>body{font-family:Segoe UI,Arial,sans-serif;background:#fff;margin:0;padding:24px;color:#1e293b;}table{width:100%;border-collapse:collapse;}th,td{padding:10px 14px;}@page{margin:15mm;}@media print{.no-print{display:none!important;}body{padding:0;}}</style>'
-    + '</head><body>'
-    + reportEl.innerHTML
-    + '<div class="no-print" style="text-align:center;margin-top:28px;padding-top:20px;border-top:2px solid #e2e8f0;">'
-    + '<p style="font-size:13px;color:#6b7280;margin-bottom:14px;">Use browser Print to save as PDF (File &rarr; Print &rarr; Save as PDF)</p>'
-    + '<button onclick="window.print()" style="background:#1e3a5f;color:#fff;border:none;padding:14px 36px;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer;margin-right:12px;">Print / Save as PDF</button>'
-    + '<button onclick="window.close()" style="background:#6b7280;color:#fff;border:none;padding:14px 24px;border-radius:8px;font-size:15px;cursor:pointer;">Close</button>'
-    + '</div></body></html>';
-  const blob = new Blob([printHtml], {type:'text/html'});
-  const url = URL.createObjectURL(blob);
-  const win = window.open(url, '_blank');
-  if (!win) { alert('Pop-ups are blocked. Please allow pop-ups for this site and try again.'); URL.revokeObjectURL(url); return; }
-  setTimeout(function(){ URL.revokeObjectURL(url); }, 10000);
+}
+
+async function downloadMidtermPDF() {
+  if (!USER || !USER.id) { alert('Please log in first.'); return; }
+  const term = document.getElementById('mt_term')?.value || document.getElementById('rc_term')?.value || 'Term 1';
+  try {
+    const btn = event?.target;
+    if (btn) { btn.disabled = true; btn.textContent = 'Generating...'; }
+    const res = await fetch(`/api/reports/midterm/${USER.id}?term=${encodeURIComponent(term)}`, {
+      headers: { 'Authorization': 'Bearer ' + TOKEN }
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(()=>({error:'PDF generation failed'}));
+      throw new Error(err.error || 'PDF failed');
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `MidTerm_Report_${USER.student_id||USER.id}_${term.replace(' ','_')}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 5000);
+  } catch(e) {
+    alert('Download failed: ' + e.message);
+  } finally {
+    const btns = document.querySelectorAll('[onclick="downloadMidtermPDF()"]');
+    btns.forEach(b=>{ b.disabled=false; b.innerHTML='<i class="fas fa-file-pdf"></i> Download Mid-Term PDF'; });
+  }
 }
 </script>
 
