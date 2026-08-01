@@ -2481,7 +2481,6 @@ async function studentDashboard() {
         ${[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].map(n=>`<option value="${n}">Mock ${n}</option>`).join('')}
       </select>
       <button class="btn btn-outline btn-sm" onclick="reloadDashboardMock()"><i class="fas fa-sync"></i></button>
-      <button class="btn btn-sm" onclick="downloadBasic9MockPDF()" style="background:#dc2626;color:#fff;border-color:#dc2626;font-weight:700;"><i class="fas fa-file-pdf"></i> Download PDF</button>
     </div>
   </div>`:''}
   <div class="card" id="sd_subjects_card">
@@ -2730,7 +2729,7 @@ async function studentMidtermResults() {
     document.getElementById('pageContent').innerHTML =
     '<div class="portal-profile-banner"><div class="portal-avatar">'+(USER.profile_photo?'<img src="'+USER.profile_photo+'"/>':'<div style="width:100%;height:100%;background:linear-gradient(135deg,var(--primary),var(--purple));display:flex;align-items:center;justify-content:center;color:#fff;font-size:28px;font-weight:700;">'+USER.full_name[0]+'</div>')+'</div>'
     +'<div class="portal-info"><h2>'+USER.full_name+'</h2><p>'+USER.student_id+' · '+USER.class+'</p><span class="portal-badge">Mid-Term Report</span></div></div>'
-    +'<div class="card" style="margin-bottom:14px;"><div class="card-body" style="display:flex;align-items:center;gap:10px;">'+termSel+'<button class="btn btn-outline btn-sm" onclick="loadStudentMidtermReport()"><i class="fas fa-sync"></i></button><button class="btn btn-sm" onclick="downloadMidtermPDF()" style="background:#dc2626;color:#fff;border-color:#dc2626;font-weight:700;"><i class="fas fa-file-pdf"></i> Download PDF</button></div></div>'
+    +'<div class="card" style="margin-bottom:14px;"><div class="card-body" style="display:flex;align-items:center;gap:10px;">'+termSel+'<button class="btn btn-outline btn-sm" onclick="loadStudentMidtermReport()"><i class="fas fa-sync"></i></button></div></div>'
     +'<div id="mtReportContent"><div class="loading-overlay"><div class="spinner"></div></div></div>';
     loadStudentMidtermReport();
   } catch(e){ toast(e.message,'error'); }
