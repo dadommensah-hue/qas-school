@@ -102,7 +102,7 @@ exports.studentReport = async (req, res) => {
     doc.moveTo(M, y).lineTo(pageW-M, y).strokeColor('#e5e7eb').lineWidth(1).stroke(); y += 6;
 
     // ── STUDENT INFO BOX WITH PHOTO ──
-    const infoH = 98;
+    const infoH = 88;
     const photoW = 64;
     doc.rect(M, y, W, infoH).fillAndStroke('#f0f9ff','#bfdbfe');
     // Photo box
@@ -121,23 +121,27 @@ exports.studentReport = async (req, res) => {
     const textW = W - photoW - 14;
     const iy = y + 7;
     doc.fillColor('#1e40af').fontSize(11).font('Helvetica-Bold')
-      .text(`Name: ${student.full_name}`,       M+8, iy,    {width:textW})
-      .text(`Class: ${student.class}`,           M+8, iy+16, {width:textW/2})
-      .text(`Gender: ${student.gender||'N/A'}`,  M+8+textW/2, iy+16, {width:textW/2})
-      .text(`Student ID: ${student.student_id}`, M+8, iy+32, {width:textW})
-      .text(`Type: ${(student.student_type||'Day').charAt(0).toUpperCase()+(student.student_type||'day').slice(1)}`, M+8, iy+48, {width:textW/2})
-      .text(`Term: ${termLabel}`,                M+8+textW/2, iy+48, {width:textW/2})
-      .text(`Total Enrollment: ${totalEnrollment}`,  M+8, iy+64, {width:textW/2})
-      .text(`Position in Class: ${position} of ${totalEnrollment}`, M+8+textW/2, iy+64, {width:textW/2});
+      .text(`Name: ${student.full_name}`,        M+8, iy,    {width:textW})
+      .text(`Class: ${student.class}`,            M+8, iy+18, {width:textW/2})
+      .text(`Gender: ${student.gender||'N/A'}`,   M+8+textW/2, iy+18, {width:textW/2})
+      .text(`Type: ${(student.student_type||'Day').charAt(0).toUpperCase()+(student.student_type||'day').slice(1)}`, M+8, iy+36, {width:textW/2})
+      .text(`Term: ${termLabel}`,                 M+8+textW/2, iy+36, {width:textW/2})
+      .text(`Total Enrollment: ${totalEnrollment}`,   M+8, iy+54, {width:textW/2})
+      .text(`Position in Class: ${position} of ${totalEnrollment}`, M+8+textW/2, iy+54, {width:textW/2});
     y += infoH + 8;
 
     // ── GRADES TABLE ──
     doc.fillColor('#374151').fontSize(13).font('Helvetica-Bold').text('Academic Performance', M, y); y += 16;
-    const cols = [M, M+175, M+255, M+325, M+378, M+420];
+    const cols = [M, M+180, M+258, M+320, M+372, M+418];
     const headers = ['Subject','Class Score (50)','Exam Score (50)','Total (100)','Grade','Remark'];
     doc.rect(M, y, W, 20).fill('#1e3a5f');
     doc.fillColor('#fff').fontSize(8.5).font('Helvetica-Bold');
-    headers.forEach((h,i) => doc.text(h, cols[i]+2, y+5, {width:(cols[i+1]||(pageW-M))-cols[i]-3}));
+    // Subject header left-aligned, numeric columns center-aligned
+    headers.forEach((h,i) => {
+      const colW = (cols[i+1]||(pageW-M)) - cols[i] - 3;
+      const align = i===0 ? 'left' : 'center';
+      doc.text(h, cols[i]+2, y+5, {width:colW, align});
+    });
     y += 20;
 
     let totalScore = 0; let gradeCount = 0;
@@ -146,14 +150,17 @@ exports.studentReport = async (req, res) => {
       const total = parseFloat(g.class_score||0) + parseFloat(g.exam_score||0);
       totalScore += total; gradeCount++;
       doc.rect(M, y, W, 15).fill(idx%2===0?'#fff':'#f8fafc');
+      const colWs = headers.map((_,i) => (cols[i+1]||(pageW-M)) - cols[i] - 3);
       doc.fillColor('#1e3a5f').fontSize(11).font('Helvetica-Bold')
-        .text(g.subject, cols[0]+2, y+5, {width:cols[1]-cols[0]-3});
+        .text(g.subject, cols[0]+2, y+5, {width:colWs[0]});
       doc.fillColor('#374151').fontSize(11).font('Helvetica-Bold')
-        .text(parseFloat(g.class_score||0).toFixed(1), cols[1]+2, y+5)
-        .text(parseFloat(g.exam_score||0).toFixed(1), cols[2]+2, y+5)
-        .text(total.toFixed(1), cols[3]+2, y+5);
-      doc.fillColor(gradeColor(g.grade)).fontSize(12).font('Helvetica-Bold').text(g.grade||'—', cols[4]+2, y+4);
-      doc.fillColor('#374151').fontSize(11).font('Helvetica-Bold').text(g.remarks||remarkFromGrade(g.grade), cols[5]+2, y+5, {width:60});
+        .text(parseFloat(g.class_score||0).toFixed(1), cols[1]+2, y+5, {width:colWs[1], align:'center'})
+        .text(parseFloat(g.exam_score||0).toFixed(1),  cols[2]+2, y+5, {width:colWs[2], align:'center'})
+        .text(total.toFixed(1),                         cols[3]+2, y+5, {width:colWs[3], align:'center'});
+      doc.fillColor(gradeColor(g.grade)).fontSize(12).font('Helvetica-Bold')
+        .text(g.grade||'—', cols[4]+2, y+4, {width:colWs[4], align:'center'});
+      doc.fillColor('#374151').fontSize(11).font('Helvetica-Bold')
+        .text(g.remarks||remarkFromGrade(g.grade), cols[5]+2, y+5, {width:colWs[5]});
       y += 20;
     });
 
@@ -162,9 +169,9 @@ exports.studentReport = async (req, res) => {
     const overallGrade = gradeFromScore(parseFloat(avg));
     doc.rect(M, y, W, 22).fill('#dbeafe');
     doc.fillColor('#1e40af').fontSize(12).font('Helvetica-Bold')
-      .text('AVERAGE / OVERALL', cols[0]+2, y+5)
-      .text(avg, cols[3]+2, y+5)
-      .text(overallGrade, cols[4]+2, y+5);
+      .text('AVERAGE / OVERALL', cols[0]+2, y+5, {width:cols[3]-cols[0]-3})
+      .text(avg,          cols[3]+2, y+5, {width:(cols[4]||(pageW-M))-cols[3]-3, align:'center'})
+      .text(overallGrade, cols[4]+2, y+5, {width:(cols[5]||(pageW-M))-cols[4]-3, align:'center'});
     y += 25;
 
     // ── ATTENDANCE ──

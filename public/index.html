@@ -2374,30 +2374,58 @@ async function saveEditConduct(studentId, term, examType) {
   } catch(e){ toast(e.message,'error'); }
 }
 
+
+// ── Teacher conduct modal (no Promoted To / Next Term Begins) ──
+async function editConductTeacherModal(studentId, name) {
+  var term = document.getElementById('tc_term')?.value||'Term 1';
+  var examType = document.getElementById('tc_type')?.value||'end_of_term';
+  var data = await get('/conduct/student/'+studentId+'?term='+encodeURIComponent(term)+'&exam_type='+examType);
+  openModal('Edit Conduct – '+name,
+    '<div class="form-group"><label>Conduct</label><input class="form-control" id="ec_conduct" value="'+(data.conduct||'')+'"/></div>'
+    +'<div class="form-group"><label>Interest</label><input class="form-control" id="ec_interest" value="'+(data.interest||'')+'"/></div>'
+    +'<div class="form-group"><label>Attitude in Class</label><input class="form-control" id="ec_attitude" value="'+(data.attitude||'')+'"/></div>'
+    +'<div class="form-group"><label>Teacher Remark</label><textarea class="form-control" id="ec_remark" rows="2">'+(data.teacher_remark||'')+'</textarea></div>',
+    '<button class="btn btn-outline" onclick="closeModal()">Cancel</button> <button class="btn btn-primary" onclick="saveTeacherConduct('+studentId+',\''+term+'\',\''+examType+'\')">'
+    +'<i class="fas fa-save"></i> Save</button>');
+}
+
+async function saveTeacherConduct(studentId, term, examType) {
+  try {
+    await post('/conduct', {
+      student_id: studentId, term, exam_type: examType,
+      conduct:       document.getElementById('ec_conduct').value,
+      interest:      document.getElementById('ec_interest').value,
+      attitude:      document.getElementById('ec_attitude').value,
+      teacher_remark: document.getElementById('ec_remark').value
+    });
+    closeModal();
+    toast('Conduct updated!','success');
+    if (typeof loadTeacherConduct==='function') loadTeacherConduct();
+  } catch(e){ toast(e.message,'error'); }
+}
+
 // ════════════════════════════════════════════
 // TEACHER CONDUCT & REMARKS
 // ════════════════════════════════════════════
 async function teacherConduct() {
-  // Use assignedClasses from login data first, then fall back to subject classes
+  // Only teachers with an assigned class can enter conduct
   var assignedClasses = [];
-  // First try USER.assignedClasses (from class assignments table, returned at login)
-  if (USER.assignedClasses && USER.assignedClasses.length) {
-    assignedClasses = USER.assignedClasses.filter(function(c){return c!=='Basic 9';});
-  }
-  // If none from login cache, fetch fresh from API
+  try {
+    var ca = await get('/teachers/my-classes');
+    assignedClasses = (ca||[]).map(function(a){return a.assigned_class;}).filter(function(c){return c&&c!=='Basic 9';});
+    if (assignedClasses.length) USER.assignedClasses = assignedClasses;
+  } catch(e){}
+
+  // Block teacher if not assigned to any class
   if (!assignedClasses.length) {
-    try {
-      var ca = await get('/teachers/my-classes');
-      assignedClasses = (ca||[]).map(function(a){return a.assigned_class;}).filter(function(c){return c&&c!=='Basic 9';});
-      // Also update USER cache
-      if (assignedClasses.length) USER.assignedClasses = (ca||[]).map(function(a){return a.assigned_class;});
-    } catch(e){}
+    document.getElementById('pageContent').innerHTML =
+      '<div class="card"><div class="card-body" style="text-align:center;padding:60px 20px;">'
+      + '<div style="font-size:60px;margin-bottom:16px;">🚫</div>'
+      + '<h3 style="color:#dc2626;font-size:20px;margin-bottom:8px;">No Class Assigned</h3>'
+      + '<p style="color:var(--text-muted);font-size:15px;">You have not been assigned to any class.<br>Please contact the school administrator to be assigned a class before entering Conduct & Remarks.</p>'
+      + '</div></div>';
+    return;
   }
-  // Fall back to subject-based classes
-  if (!assignedClasses.length) {
-    assignedClasses = [...new Set((USER.subjects||[]).map(function(s){return s.class;}).filter(function(c){return c!=='all'&&c!=='Basic 9';}))];
-  }
-  if (!assignedClasses.length) assignedClasses = CLASSES.filter(function(c){return c!=='Basic 9';});
   var clsOptions = assignedClasses.map(function(c){return '<option>'+c+'</option>';}).join('');
   document.getElementById('pageContent').innerHTML =
   '<div class="search-bar" style="margin-bottom:16px;">'
@@ -2417,7 +2445,7 @@ async function loadTeacherConduct() {
   try {
     var data = await get('/conduct/class/'+encodeURIComponent(cls)+'?term='+encodeURIComponent(term)+'&exam_type='+examType);
     document.getElementById('tconductTable').innerHTML = data?.length ? '<table><thead><tr><th>Student</th><th>Conduct</th><th>Interest</th><th>Attitude</th><th>Teacher Remark</th><th>Action</th></tr></thead><tbody>'
-    + data.map(function(s){ return '<tr><td><strong>'+s.full_name+'</strong></td><td>'+(s.conduct||'—')+'</td><td>'+(s.interest||'—')+'</td><td>'+(s.attitude||'—')+'</td><td>'+(s.teacher_remark||'—')+'</td><td><button class="btn btn-info btn-sm" onclick="editConductModal('+s.id+',\''+s.full_name.replace(/'/g,"\\'")+'\')"><i class="fas fa-edit"></i></button></td></tr>'; }).join('')
+    + data.map(function(s){ return '<tr><td><strong>'+s.full_name+'</strong></td><td>'+(s.conduct||'—')+'</td><td>'+(s.interest||'—')+'</td><td>'+(s.attitude||'—')+'</td><td>'+(s.teacher_remark||'—')+'</td><td><button class="btn btn-info btn-sm" onclick="editConductTeacherModal('+s.id+',\''+s.full_name.replace(/'/g,"\\'")+'\')"><i class="fas fa-edit"></i></button></td></tr>'; }).join('')
     + '</tbody></table>' : '<div class="empty-state"><h4>No students found</h4></div>';
   } catch(e){ toast(e.message,'error'); }
 }
@@ -3194,9 +3222,42 @@ async function saveTeacherGrades(cls, studentIds) {
   catch(e){ toast(e.message,'error'); }
 }
 
-function teacherAttendance() {
-  // Reuse main attendance function
-  attendance();
+async function teacherAttendance() {
+  // Fetch assigned classes - teacher can only see/mark their assigned class
+  var assignedClasses = USER.assignedClasses || [];
+  if (!assignedClasses.length) {
+    try {
+      var ca = await get('/teachers/my-classes');
+      assignedClasses = (ca||[]).map(function(a){return a.assigned_class;}).filter(Boolean);
+      if (assignedClasses.length) USER.assignedClasses = assignedClasses;
+    } catch(e){}
+  }
+
+  // Block unassigned teachers
+  if (!assignedClasses.length) {
+    document.getElementById('pageContent').innerHTML =
+      '<div class="card"><div class="card-body" style="text-align:center;padding:60px 20px;">'
+      + '<div style="font-size:60px;margin-bottom:16px;">🚫</div>'
+      + '<h3 style="color:#dc2626;font-size:20px;margin-bottom:8px;">No Class Assigned</h3>'
+      + '<p style="color:var(--text-muted);font-size:15px;">You have not been assigned to any class.<br>Please contact the school administrator to be assigned a class before marking attendance.</p>'
+      + '</div></div>';
+    return;
+  }
+
+  // Build restricted attendance view - only assigned classes
+  const clsOptions = assignedClasses.map(function(c){return '<option>'+c+'</option>';}).join('');
+  document.getElementById('pageContent').innerHTML =
+    '<div class="search-bar" style="margin-bottom:16px;">'
+    + '<div class="form-group" style="margin:0;"><label style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Class</label>'
+    + '<select class="form-control" id="att_class" onchange="loadAttStudents()" style="max-width:150px;">' + clsOptions + '</select></div>'
+    + '<div class="form-group" style="margin:0;"><label style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Term</label>'
+    + '<select class="form-control" id="att_term" style="max-width:110px;">' + TERMS.map(function(t){return '<option>'+t+'</option>';}).join('') + '</select></div>'
+    + '<div class="form-group" style="margin:0;"><label style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Date</label>'
+    + '<input type="date" class="form-control" id="att_date" value="'+new Date().toISOString().split('T')[0]+'" style="max-width:140px;"/></div>'
+    + '<button class="btn btn-primary btn-sm" onclick="loadAttStudents()"><i class="fas fa-search"></i> Load</button>'
+    + '</div>'
+    + '<div id="attStudentsWrap"><div class="loading-overlay"><div class="spinner"></div></div></div>';
+  loadAttStudents();
 }
 
 async function syllabusPortal() {
