@@ -3,7 +3,24 @@ const { gradeFromScore, remarkFromGrade } = require('../helpers');
 
 exports.save = async (req, res) => {
   try {
-    const { grades } = req.body; // [{student_id, subject, class, term, class_score, exam_score}]
+    const { grades } = req.body;
+    const user = req.user;
+
+    // If teacher (not admin), verify they are assigned to the subjects they're saving
+    if (user && user.role === 'teacher') {
+      const assignedRows = await query(
+        "SELECT subject FROM teacher_subjects WHERE teacher_id=?", [user.id]
+      ).catch(()=>[]);
+      const assignedSubjects = (Array.isArray(assignedRows)?assignedRows:[]).map(r=>String(r.subject||''));
+      if (!assignedSubjects.length) {
+        return res.status(403).json({ error: 'You have not been assigned to any subjects. Contact the administrator.' });
+      }
+      for (const g of grades) {
+        if (!assignedSubjects.includes(String(g.subject||''))) {
+          return res.status(403).json({ error: `You are not assigned to teach "${g.subject}". You can only enter grades for your assigned subjects.` });
+        }
+      }
+    }
     for (const g of grades) {
       const total = parseFloat(g.class_score || 0) + parseFloat(g.exam_score || 0);
       const grade = gradeFromScore(total);

@@ -3162,12 +3162,30 @@ async function showTeacherClassDetail(cls) {
 }
 
 async function teacherGrades() {
+  // Block teachers with no assigned subjects
+  const assignedSubjects = (USER.subjects||[]);
+  if (!assignedSubjects.length) {
+    document.getElementById('pageContent').innerHTML =
+      '<div class="card"><div class="card-body" style="text-align:center;padding:60px 20px;">'
+      + '<div style="font-size:60px;margin-bottom:16px;">🚫</div>'
+      + '<h3 style="color:#dc2626;font-size:20px;margin-bottom:8px;">No Subjects Assigned</h3>'
+      + '<p style="color:var(--text-muted);font-size:15px;">You have not been assigned to any subject.<br>Please contact the school administrator to be assigned subjects before entering grades.</p>'
+      + '</div></div>';
+    return;
+  }
+
+  // Only show classes relevant to their assigned subjects
+  const assignedClasses = [...new Set(assignedSubjects.map(s=>s.class).filter(c=>c&&c!=='all'))];
+  const classOpts = assignedClasses.length
+    ? assignedClasses.map(c=>`<option>${c}</option>`).join('')
+    : CLASSES.map(c=>`<option>${c}</option>`).join('');
+
   document.getElementById('pageContent').innerHTML = `
   <div class="search-bar">
-    <select id="tg_class" class="form-control" style="max-width:140px;" onchange="loadTeacherGrades()">${CLASSES.map(c=>`<option>${c}</option>`).join('')}</select>
+    <select id="tg_class" class="form-control" style="max-width:140px;" onchange="loadTeacherGrades()">${classOpts}</select>
     <select id="tg_term" class="form-control" style="max-width:110px;" onchange="loadTeacherGrades()">${TERMS.map(t=>`<option>${t}</option>`).join('')}</select>
     <select id="tg_subject" class="form-control" style="max-width:200px;" onchange="loadTeacherGrades()">
-      ${(USER.subjects||[]).length ? (USER.subjects||[]).map(s=>`<option value="${s.subject}">${s.subject}</option>`).join('') : SUBJECTS.map(s=>`<option>${s}</option>`).join('')}
+      ${assignedSubjects.map(s=>`<option value="${s.subject}">${s.subject}</option>`).join('')}
     </select>
     <button class="btn btn-primary" onclick="openTeacherGradeEntry()"><i class="fas fa-edit"></i> Enter Grades</button>
   </div>
@@ -3195,11 +3213,13 @@ async function openTeacherGradeEntry() {
   const cls=document.getElementById('tg_class')?.value||'Basic 1';
   const term=document.getElementById('tg_term')?.value||'Term 1';
   const subject=document.getElementById('tg_subject')?.value||(USER.subjects?.[0]?.subject||SUBJECTS[0]);
+  const assignedSubjects = (USER.subjects||[]);
+  if (!assignedSubjects.length) { toast('You have no assigned subjects.','error'); return; }
   const stdList=await get(`/students/class/${encodeURIComponent(cls)}`);
   openModal(`Enter Grades – ${cls} | ${term}`, `
   <div class="form-row" style="margin-bottom:14px;">
     <div class="form-group"><label>Subject</label>
-      <select class="form-control" id="tge_subject">${((USER.subjects||[]).length?(USER.subjects||[]).map(s=>s.subject):SUBJECTS).map(s=>`<option ${s===subject?'selected':''}>${s}</option>`).join('')}</select></div>
+      <select class="form-control" id="tge_subject">${assignedSubjects.map(s=>`<option ${s.subject===subject?'selected':''}>${s.subject}</option>`).join('')}</select></div>
     <div class="form-group"><label>Term</label><select class="form-control" id="tge_term">${TERMS.map(t=>`<option ${t===term?'selected':''}>${t}</option>`).join('')}</select></div>
   </div>
   <div class="table-wrap"><table><thead><tr><th>Student</th><th>Class Score (/50)</th><th>Exam Score (/50)</th></tr></thead>
