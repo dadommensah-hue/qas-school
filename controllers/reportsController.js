@@ -102,7 +102,7 @@ exports.studentReport = async (req, res) => {
     doc.moveTo(M, y).lineTo(pageW-M, y).strokeColor('#e5e7eb').lineWidth(1).stroke(); y += 6;
 
     // ── STUDENT INFO BOX WITH PHOTO ──
-    const infoH = 86;
+    const infoH = 98;
     const photoW = 64;
     doc.rect(M, y, W, infoH).fillAndStroke('#f0f9ff','#bfdbfe');
     // Photo box
@@ -119,26 +119,26 @@ exports.studentReport = async (req, res) => {
       doc.fillColor('#93c5fd').fontSize(7).font('Helvetica').text('PHOTO', pageW-M-photoW-4, y+infoH/2-4, {width:photoW-2, align:'center'});
     }
     const textW = W - photoW - 14;
-    const iy = y + 8;
-    doc.fillColor('#1e40af').fontSize(9).font('Helvetica-Bold')
+    const iy = y + 7;
+    doc.fillColor('#1e40af').fontSize(11).font('Helvetica-Bold')
       .text(`Name: ${student.full_name}`,       M+8, iy,    {width:textW})
-      .text(`Class: ${student.class}`,           M+8, iy+14, {width:textW/2})
-      .text(`Gender: ${student.gender||'N/A'}`,  M+8+textW/2, iy+14, {width:textW/2})
-      .text(`Student ID: ${student.student_id}`, M+8, iy+28, {width:textW})
-      .text(`Type: ${(student.student_type||'Day').charAt(0).toUpperCase()+(student.student_type||'day').slice(1)}`, M+8, iy+42, {width:textW/2})
-      .text(`Term: ${termLabel}`,                M+8+textW/2, iy+42, {width:textW/2})
-      .text(`Total Enrollment: ${totalEnrollment}`,  M+8, iy+56, {width:textW/2})
-      .text(`Position in Class: ${position} of ${totalEnrollment}`, M+8+textW/2, iy+56, {width:textW/2});
+      .text(`Class: ${student.class}`,           M+8, iy+16, {width:textW/2})
+      .text(`Gender: ${student.gender||'N/A'}`,  M+8+textW/2, iy+16, {width:textW/2})
+      .text(`Student ID: ${student.student_id}`, M+8, iy+32, {width:textW})
+      .text(`Type: ${(student.student_type||'Day').charAt(0).toUpperCase()+(student.student_type||'day').slice(1)}`, M+8, iy+48, {width:textW/2})
+      .text(`Term: ${termLabel}`,                M+8+textW/2, iy+48, {width:textW/2})
+      .text(`Total Enrollment: ${totalEnrollment}`,  M+8, iy+64, {width:textW/2})
+      .text(`Position in Class: ${position} of ${totalEnrollment}`, M+8+textW/2, iy+64, {width:textW/2});
     y += infoH + 8;
 
     // ── GRADES TABLE ──
     doc.fillColor('#374151').fontSize(13).font('Helvetica-Bold').text('Academic Performance', M, y); y += 16;
     const cols = [M, M+175, M+255, M+325, M+378, M+420];
     const headers = ['Subject','Class Score (50)','Exam Score (50)','Total (100)','Grade','Remark'];
-    doc.rect(M, y, W, 22).fill('#1e3a5f');
-    doc.fillColor('#fff').fontSize(11).font('Helvetica-Bold');
+    doc.rect(M, y, W, 20).fill('#1e3a5f');
+    doc.fillColor('#fff').fontSize(8.5).font('Helvetica-Bold');
     headers.forEach((h,i) => doc.text(h, cols[i]+2, y+5, {width:(cols[i+1]||(pageW-M))-cols[i]-3}));
-    y += 22;
+    y += 20;
 
     let totalScore = 0; let gradeCount = 0;
     grades.forEach((g, idx) => {
