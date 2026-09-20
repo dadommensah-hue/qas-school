@@ -63,167 +63,164 @@ exports.studentReport = async (req, res) => {
     const student = await get("SELECT * FROM students WHERE id=?", [id]);
     if (!student) return res.status(404).json({ error: 'Student not found' });
 
-    // Get grades and class-wide data for position
     let grades = await query("SELECT * FROM grades WHERE student_id=? AND term=? ORDER BY subject", [id, termLabel]);
-    // Include History for Basic 1-8
-    if (student.class !== 'Basic 9') {
-      // keep all subjects including History
-    }
     const att = await get("SELECT COUNT(*) as total, COUNT(CASE WHEN status='present' THEN 1 END) as present FROM attendance WHERE student_id=? AND term=?", [id, termLabel]);
-
-    // Total enrollment in class
     const enrollRow = await get("SELECT COUNT(*) as count FROM students WHERE class=? AND status='active'", [student.class]);
     const totalEnrollment = parseInt(String(enrollRow?.count||0));
-
-    // Position in class
-    const classStudents = await query(`SELECT s.id, AVG(g.class_score+g.exam_score) as avg_score
-      FROM students s JOIN grades g ON s.id=g.student_id
-      WHERE s.class=? AND g.term=? AND s.status='active' GROUP BY s.id ORDER BY avg_score DESC`,
-      [student.class, termLabel]);
+    const classStudents = await query(`SELECT s.id, AVG(g.class_score+g.exam_score) as avg_score FROM students s JOIN grades g ON s.id=g.student_id WHERE s.class=? AND g.term=? AND s.status='active' GROUP BY s.id ORDER BY avg_score DESC`, [student.class, termLabel]);
     const pos = Array.isArray(classStudents) ? classStudents.findIndex(s => String(s.id) === String(id)) : -1;
     const position = pos >= 0 ? pos + 1 : '—';
+    const conductData = await get("SELECT * FROM report_conduct WHERE student_id=? AND term=? AND academic_year=? AND exam_type='end_of_term'", [id, termLabel, academic_year || '2024/2025']);
 
-    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    // Use tight margins and smaller A4 page
+    const doc = new PDFDocument({ margin: 36, size: 'A4' });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="report_${student.student_id}_${termLabel.replace(' ','_')}.pdf"`);
     doc.pipe(res);
 
-    drawReportHeader(doc, termLabel);
+    const pageW = doc.page.width;
+    const M = 36; // margin
+    const W = pageW - M*2; // content width
+    let y = M;
 
-    // Student info box - with photo
-    const infoTop = doc.y;
-    const infoH = 100;
-    const photoW = 72;
-    doc.rect(50, infoTop, 495, infoH).fillAndStroke('#f0f9ff', '#bfdbfe');
-    const iy = infoTop + 10;
-    // Draw student photo or placeholder
+    // ── LOGO ──
+    if (fs.existsSync(LOGO_PATH)) {
+      try { doc.image(LOGO_PATH, (pageW-64)/2, y, {width:64,height:64}); y += 68; } catch(e){}
+    }
+
+    // ── SCHOOL NAME & HEADER ──
+    doc.fontSize(15).font('Helvetica-Bold').fillColor('#1e3a5f')
+      .text(SCHOOL_NAME, M, y, {width:W, align:'center'}); y += 18;
+    doc.fontSize(10).font('Helvetica-Bold').fillColor('#374151')
+      .text(SCHOOL_ADDRESS, M, y, {width:W, align:'center'}); y += 13;
+    doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#1d4ed8')
+      .text(SCHOOL_MOTTO, M, y, {width:W, align:'center'}); y += 11;
+    doc.moveTo(M, y).lineTo(pageW-M, y).strokeColor('#1e3a5f').lineWidth(2).stroke(); y += 5;
+    doc.rect(M, y, W, 20).fill('#1e3a5f');
+    doc.fontSize(11).font('Helvetica-Bold').fillColor('#fff')
+      .text(`STUDENT REPORT CARD – ${termLabel}`, M, y+4, {width:W, align:'center'}); y += 24;
+    doc.moveTo(M, y).lineTo(pageW-M, y).strokeColor('#e5e7eb').lineWidth(1).stroke(); y += 6;
+
+    // ── STUDENT INFO BOX WITH PHOTO ──
+    const infoH = 86;
+    const photoW = 64;
+    doc.rect(M, y, W, infoH).fillAndStroke('#f0f9ff','#bfdbfe');
+    // Photo box
     let photoDrawn = false;
     if (student.profile_photo) {
       try {
-        const photoData = student.profile_photo.startsWith('data:')
-          ? Buffer.from(student.profile_photo.split(',')[1], 'base64')
-          : student.profile_photo;
-        doc.image(photoData, 472, infoTop+5, { width: photoW-4, height: infoH-10, fit:[photoW-4,infoH-10] });
+        const pd = student.profile_photo.startsWith('data:') ? Buffer.from(student.profile_photo.split(',')[1],'base64') : student.profile_photo;
+        doc.image(pd, pageW-M-photoW-4, y+4, {width:photoW-2, height:infoH-8, fit:[photoW-2,infoH-8]});
         photoDrawn = true;
-      } catch(pe) {}
+      } catch(pe){}
     }
     if (!photoDrawn) {
-      doc.rect(472, infoTop+5, photoW-4, infoH-10).fillAndStroke('#dbeafe','#93c5fd');
-      doc.fillColor('#93c5fd').fontSize(7).font('Helvetica').text('PHOTO', 472, infoTop+46, {width:photoW-4,align:'center'});
+      doc.rect(pageW-M-photoW-4, y+4, photoW-2, infoH-8).fillAndStroke('#dbeafe','#93c5fd');
+      doc.fillColor('#93c5fd').fontSize(7).font('Helvetica').text('PHOTO', pageW-M-photoW-4, y+infoH/2-4, {width:photoW-2, align:'center'});
     }
-    doc.fillColor('#1e40af').fontSize(10).font('Helvetica-Bold')
-      .text(`Name: ${student.full_name}`, 60, iy, {width:380})
-      .text(`Class: ${student.class}`, 60, iy+16, {width:380})
-      .text(`Student ID: ${student.student_id}`, 60, iy+32, {width:380})
-      .text(`Type: ${(student.student_type||'Day').charAt(0).toUpperCase()+(student.student_type||'day').slice(1)}`, 60, iy+48, {width:180})
-      .text(`Gender: ${student.gender||'N/A'}`, 300, iy, {width:160})
-      .text(`Term: ${termLabel}`, 300, iy+16, {width:160})
-      .text(`Total Enrollment: ${totalEnrollment}`, 300, iy+32, {width:160})
-      .text(`Position in Class: ${position} of ${totalEnrollment}`, 60, iy+64, {width:380});
-    doc.moveDown(6.5);
+    const textW = W - photoW - 14;
+    const iy = y + 8;
+    doc.fillColor('#1e40af').fontSize(9).font('Helvetica-Bold')
+      .text(`Name: ${student.full_name}`,       M+8, iy,    {width:textW})
+      .text(`Class: ${student.class}`,           M+8, iy+14, {width:textW/2})
+      .text(`Gender: ${student.gender||'N/A'}`,  M+8+textW/2, iy+14, {width:textW/2})
+      .text(`Student ID: ${student.student_id}`, M+8, iy+28, {width:textW})
+      .text(`Type: ${(student.student_type||'Day').charAt(0).toUpperCase()+(student.student_type||'day').slice(1)}`, M+8, iy+42, {width:textW/2})
+      .text(`Term: ${termLabel}`,                M+8+textW/2, iy+42, {width:textW/2})
+      .text(`Total Enrollment: ${totalEnrollment}`,  M+8, iy+56, {width:textW/2})
+      .text(`Position in Class: ${position} of ${totalEnrollment}`, M+8+textW/2, iy+56, {width:textW/2});
+    y += infoH + 8;
 
-    // Grades table
-    doc.fillColor('#374151').fontSize(11).font('Helvetica-Bold').text('Academic Performance');
-    doc.moveDown(0.3);
+    // ── GRADES TABLE ──
+    doc.fillColor('#374151').fontSize(9.5).font('Helvetica-Bold').text('Academic Performance', M, y); y += 12;
+    const cols = [M, M+175, M+255, M+325, M+378, M+420];
+    const headers = ['Subject','Class Score (50)','Exam Score (50)','Total (100)','Grade','Remark'];
+    doc.rect(M, y, W, 17).fill('#1e3a5f');
+    doc.fillColor('#fff').fontSize(7.5).font('Helvetica-Bold');
+    headers.forEach((h,i) => doc.text(h, cols[i]+2, y+4, {width:(cols[i+1]||(pageW-M))-cols[i]-3}));
+    y += 17;
 
-    const tableTop = doc.y;
-    const cols = [50, 215, 295, 370, 430, 480];
-    const headers = ['Subject', 'Class Score (50)', 'Exam Score (50)', 'Total (100)', 'Grade', 'Remark'];
-
-    doc.rect(50, tableTop, 495, 20).fill('#1e3a5f');
-    doc.fillColor('#ffffff').fontSize(8.5).font('Helvetica-Bold');
-    headers.forEach((h, i) => doc.text(h, cols[i]+3, tableTop+5, { width: (cols[i+1]||545)-cols[i]-5 }));
-
-    let rowY = tableTop + 20;
-    let totalScore = 0;
-
+    let totalScore = 0; let gradeCount = 0;
     grades.forEach((g, idx) => {
-      if (g.subject === 'History' && student.class === 'Basic 9') return; // History only excluded for Basic 9
+      if (g.subject==='History' && student.class==='Basic 9') return;
       const total = parseFloat(g.class_score||0) + parseFloat(g.exam_score||0);
-      totalScore += total;
-      const bg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
-      doc.rect(50, rowY, 495, 18).fill(bg);
-      doc.fillColor('#374151').fontSize(8.5).font('Helvetica');
-      doc.text(g.subject, cols[0]+3, rowY+4, { width: cols[1]-cols[0]-5 });
-      doc.text(parseFloat(g.class_score||0).toFixed(1), cols[1]+3, rowY+4);
-      doc.text(parseFloat(g.exam_score||0).toFixed(1), cols[2]+3, rowY+4);
-      doc.text(total.toFixed(1), cols[3]+3, rowY+4);
-      doc.fillColor(gradeColor(g.grade)).font('Helvetica-Bold').text(g.grade||'—', cols[4]+3, rowY+4);
-      doc.fillColor('#374151').font('Helvetica').text(g.remarks || remarkFromGrade(g.grade), cols[5]-5, rowY+4, { width: 60 });
-      rowY += 18;
+      totalScore += total; gradeCount++;
+      doc.rect(M, y, W, 15).fill(idx%2===0?'#fff':'#f8fafc');
+      doc.fillColor('#374151').fontSize(8).font('Helvetica')
+        .text(g.subject, cols[0]+2, y+3, {width:cols[1]-cols[0]-3})
+        .text(parseFloat(g.class_score||0).toFixed(1), cols[1]+2, y+3)
+        .text(parseFloat(g.exam_score||0).toFixed(1), cols[2]+2, y+3)
+        .text(total.toFixed(1), cols[3]+2, y+3);
+      doc.fillColor(gradeColor(g.grade)).font('Helvetica-Bold').text(g.grade||'—', cols[4]+2, y+3);
+      doc.fillColor('#374151').font('Helvetica').text(g.remarks||remarkFromGrade(g.grade), cols[5]+2, y+3, {width:55});
+      y += 15;
     });
 
-    const avg = grades.length ? (totalScore / grades.length).toFixed(1) : 0;
+    // Average row
+    const avg = gradeCount ? (totalScore/gradeCount).toFixed(1) : '0.0';
     const overallGrade = gradeFromScore(parseFloat(avg));
-    doc.rect(50, rowY, 495, 20).fill('#dbeafe');
-    doc.fillColor('#1e40af').fontSize(9).font('Helvetica-Bold')
-      .text('AVERAGE / OVERALL', cols[0]+3, rowY+5)
-      .text(avg, cols[3]+3, rowY+5)
-      .text(overallGrade, cols[4]+3, rowY+5);
+    doc.rect(M, y, W, 17).fill('#dbeafe');
+    doc.fillColor('#1e40af').fontSize(8.5).font('Helvetica-Bold')
+      .text('AVERAGE / OVERALL', cols[0]+2, y+4)
+      .text(avg, cols[3]+2, y+4)
+      .text(overallGrade, cols[4]+2, y+4);
+    y += 20;
 
-    rowY += 28;
+    // ── ATTENDANCE ──
+    const attPct = att?.total ? ((att.present/att.total)*100).toFixed(0) : 0;
+    doc.fillColor('#374151').fontSize(9).font('Helvetica-Bold').text('Attendance Summary', M, y); y += 11;
+    doc.rect(M, y, W, 24).fill('#f0fdf4');
+    doc.fillColor('#374151').fontSize(8).font('Helvetica')
+      .text(`Days Present: ${att?.present||0}`, M+8, y+8)
+      .text(`Days Absent: ${(att?.total||0)-(att?.present||0)}`, M+155, y+8)
+      .text(`Total Days: ${att?.total||0}`, M+295, y+8)
+      .text(`Rate: ${attPct}%`, M+400, y+8);
+    y += 28;
 
-    // Attendance
-    const attPct = att.total ? ((att.present/att.total)*100).toFixed(0) : 0;
-    doc.fillColor('#374151').fontSize(10).font('Helvetica-Bold').text('Attendance Summary', 50, rowY);
-    rowY += 15;
-    doc.rect(50, rowY, 495, 30).fill('#f0fdf4');
-    doc.fillColor('#374151').fontSize(9).font('Helvetica')
-      .text(`Days Present: ${att.present}`, 60, rowY+10)
-      .text(`Days Absent: ${att.total - att.present}`, 190, rowY+10)
-      .text(`Total Days: ${att.total}`, 310, rowY+10)
-      .text(`Rate: ${attPct}%`, 420, rowY+10);
-
-    rowY += 44;
-
-    // Conduct & Remarks section - load from DB
-    const conductData = await get("SELECT * FROM report_conduct WHERE student_id=? AND term=? AND academic_year=? AND exam_type='end_of_term'",
-      [id, termLabel, academic_year || '2024/2025']);
-
-    // Promoted to / Next term - also check DB
+    // ── PROMOTED / NEXT TERM ──
     const dbPromotedTo = conductData?.promoted_to || promoted_to;
     if (dbPromotedTo || next_term_begins) {
-      doc.rect(50, rowY, 495, 36).fillAndStroke('#fffbeb', '#fde68a');
-      doc.fillColor('#92400e').fontSize(9.5).font('Helvetica-Bold');
-      if (dbPromotedTo) doc.text(`PROMOTED TO: ${dbPromotedTo}`, 60, rowY + 8);
-      if (next_term_begins) doc.text(`NEXT TERM BEGINS: ${next_term_begins}`, dbPromotedTo ? 270 : 60, rowY + 8);
-      rowY += 50;
+      doc.rect(M, y, W, 28).fillAndStroke('#fffbeb','#fde68a');
+      doc.fillColor('#92400e').fontSize(8.5).font('Helvetica-Bold');
+      if (dbPromotedTo) doc.text(`PROMOTED TO: ${dbPromotedTo}`, M+8, y+9);
+      if (next_term_begins) doc.text(`NEXT TERM BEGINS: ${next_term_begins}`, dbPromotedTo?M+230:M+8, y+9);
+      y += 32;
     }
 
-    rowY += 8;
-    doc.fillColor('#1e3a5f').fontSize(10).font('Helvetica-Bold').text('CONDUCT & REMARKS', 50, rowY);
-    rowY += 14;
-    doc.rect(50, rowY, 495, 72).fillAndStroke('#f8fafc', '#e2e8f0');
+    // ── CONDUCT & REMARKS ──
+    doc.fillColor('#1e3a5f').fontSize(9).font('Helvetica-Bold').text('CONDUCT & REMARKS', M, y); y += 11;
+    doc.rect(M, y, W, 62).fillAndStroke('#f8fafc','#e2e8f0');
     const conductItems = [
-      { label: 'CONDUCT', value: conductData?.conduct || '' },
-      { label: 'INTEREST', value: conductData?.interest || '' },
-      { label: 'ATTITUDE IN CLASS', value: conductData?.attitude || '' },
-      { label: "CLASS TEACHER'S REMARK", value: conductData?.teacher_remark || '' }
+      {label:'CONDUCT',           value: conductData?.conduct||''},
+      {label:'INTEREST',          value: conductData?.interest||''},
+      {label:'ATTITUDE IN CLASS', value: conductData?.attitude||''},
+      {label:"CLASS TEACHER'S REMARK", value: conductData?.teacher_remark||''}
     ];
-    const cRows = [[0,1],[2,3]];
-    cRows.forEach((pair, ri) => {
+    [[0,1],[2,3]].forEach((pair, ri) => {
       pair.forEach((ci, col) => {
         const item = conductItems[ci];
-        const x = col === 0 ? 58 : 310;
-        const y = rowY + 10 + ri * 30;
-        doc.fillColor('#6b7280').fontSize(8).font('Helvetica-Bold').text(item.label + ':', x, y);
+        const x = col===0 ? M+8 : M+W/2+8;
+        const itemY = y+8 + ri*26;
+        doc.fillColor('#6b7280').fontSize(7.5).font('Helvetica-Bold').text(item.label+':', x, itemY);
         if (item.value) {
-          doc.fillColor('#374151').fontSize(8).font('Helvetica').text(item.value, x + 10, y + 14, { width: 210 });
+          doc.fillColor('#374151').fontSize(8).font('Helvetica').text(item.value, x+8, itemY+10, {width:W/2-24});
         } else {
-          doc.moveTo(x + 10, y + 14).lineTo(x + 220, y + 14).strokeColor('#94a3b8').lineWidth(0.5).stroke();
+          doc.moveTo(x+8, itemY+18).lineTo(x+W/2-20, itemY+18).strokeColor('#94a3b8').lineWidth(0.5).stroke();
         }
       });
     });
+    y += 68;
 
-    rowY += 85;
-    doc.fillColor('#374151').fontSize(10).font('Helvetica-Bold')
-      .text(`Generated: ${new Date().toLocaleDateString('en-GH',{day:'numeric',month:'long',year:'numeric'})} | ${SCHOOL_NAME}`, 50, rowY, { align: 'center', width: 495 });
+    // ── FOOTER ──
+    doc.fillColor('#374151').fontSize(8.5).font('Helvetica-Bold')
+      .text(`Generated: ${new Date().toLocaleDateString('en-GH',{day:'numeric',month:'long',year:'numeric'})} | ${SCHOOL_NAME}`, M, y, {width:W, align:'center'});
 
     doc.end();
-  } catch (e) {
+  } catch(e) {
     if (!res.headersSent) res.status(500).json({ error: e.message });
   }
 };
+
 
 // Mock Exam Report (B.E.C.E style)
 const CORE = ['English Language','Mathematics','Integrated Science','Social Studies'];
