@@ -91,10 +91,10 @@ exports.studentReport = async (req, res) => {
     // ── SCHOOL NAME & HEADER ──
     doc.fontSize(15).font('Helvetica-Bold').fillColor('#1e3a5f')
       .text(SCHOOL_NAME, M, y, {width:W, align:'center'}); y += 18;
-    doc.fontSize(10).font('Helvetica-Bold').fillColor('#374151')
-      .text(SCHOOL_ADDRESS, M, y, {width:W, align:'center'}); y += 13;
-    doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#1d4ed8')
-      .text(SCHOOL_MOTTO, M, y, {width:W, align:'center'}); y += 11;
+    doc.fontSize(12).font('Helvetica-Bold').fillColor('#374151')
+      .text(SCHOOL_ADDRESS, M, y, {width:W, align:'center'}); y += 15;
+    doc.fontSize(10.5).font('Helvetica-Bold').fillColor('#1d4ed8')
+      .text(SCHOOL_MOTTO, M, y, {width:W, align:'center'}); y += 14;
     doc.moveTo(M, y).lineTo(pageW-M, y).strokeColor('#1e3a5f').lineWidth(2).stroke(); y += 5;
     doc.rect(M, y, W, 20).fill('#1e3a5f');
     doc.fontSize(11).font('Helvetica-Bold').fillColor('#fff')
@@ -135,10 +135,10 @@ exports.studentReport = async (req, res) => {
     doc.fillColor('#374151').fontSize(9.5).font('Helvetica-Bold').text('Academic Performance', M, y); y += 12;
     const cols = [M, M+175, M+255, M+325, M+378, M+420];
     const headers = ['Subject','Class Score (50)','Exam Score (50)','Total (100)','Grade','Remark'];
-    doc.rect(M, y, W, 17).fill('#1e3a5f');
-    doc.fillColor('#fff').fontSize(7.5).font('Helvetica-Bold');
+    doc.rect(M, y, W, 19).fill('#1e3a5f');
+    doc.fillColor('#fff').fontSize(9).font('Helvetica-Bold');
     headers.forEach((h,i) => doc.text(h, cols[i]+2, y+4, {width:(cols[i+1]||(pageW-M))-cols[i]-3}));
-    y += 17;
+    y += 19;
 
     let totalScore = 0; let gradeCount = 0;
     grades.forEach((g, idx) => {
@@ -146,50 +146,51 @@ exports.studentReport = async (req, res) => {
       const total = parseFloat(g.class_score||0) + parseFloat(g.exam_score||0);
       totalScore += total; gradeCount++;
       doc.rect(M, y, W, 15).fill(idx%2===0?'#fff':'#f8fafc');
-      doc.fillColor('#374151').fontSize(8).font('Helvetica')
-        .text(g.subject, cols[0]+2, y+3, {width:cols[1]-cols[0]-3})
-        .text(parseFloat(g.class_score||0).toFixed(1), cols[1]+2, y+3)
-        .text(parseFloat(g.exam_score||0).toFixed(1), cols[2]+2, y+3)
-        .text(total.toFixed(1), cols[3]+2, y+3);
-      doc.fillColor(gradeColor(g.grade)).font('Helvetica-Bold').text(g.grade||'—', cols[4]+2, y+3);
-      doc.fillColor('#374151').font('Helvetica').text(g.remarks||remarkFromGrade(g.grade), cols[5]+2, y+3, {width:55});
-      y += 15;
+      doc.fillColor('#1e3a5f').fontSize(9).font('Helvetica-Bold')
+        .text(g.subject, cols[0]+2, y+4, {width:cols[1]-cols[0]-3});
+      doc.fillColor('#374151').fontSize(9).font('Helvetica-Bold')
+        .text(parseFloat(g.class_score||0).toFixed(1), cols[1]+2, y+4)
+        .text(parseFloat(g.exam_score||0).toFixed(1), cols[2]+2, y+4)
+        .text(total.toFixed(1), cols[3]+2, y+4);
+      doc.fillColor(gradeColor(g.grade)).fontSize(10).font('Helvetica-Bold').text(g.grade||'—', cols[4]+2, y+3);
+      doc.fillColor('#374151').fontSize(9).font('Helvetica-Bold').text(g.remarks||remarkFromGrade(g.grade), cols[5]+2, y+4, {width:55});
+      y += 17;
     });
 
     // Average row
     const avg = gradeCount ? (totalScore/gradeCount).toFixed(1) : '0.0';
     const overallGrade = gradeFromScore(parseFloat(avg));
-    doc.rect(M, y, W, 17).fill('#dbeafe');
-    doc.fillColor('#1e40af').fontSize(8.5).font('Helvetica-Bold')
+    doc.rect(M, y, W, 19).fill('#dbeafe');
+    doc.fillColor('#1e40af').fontSize(10).font('Helvetica-Bold')
       .text('AVERAGE / OVERALL', cols[0]+2, y+4)
       .text(avg, cols[3]+2, y+4)
       .text(overallGrade, cols[4]+2, y+4);
-    y += 20;
+    y += 22;
 
     // ── ATTENDANCE ──
     const attPct = att?.total ? ((att.present/att.total)*100).toFixed(0) : 0;
-    doc.fillColor('#374151').fontSize(9).font('Helvetica-Bold').text('Attendance Summary', M, y); y += 11;
-    doc.rect(M, y, W, 24).fill('#f0fdf4');
-    doc.fillColor('#374151').fontSize(8).font('Helvetica')
-      .text(`Days Present: ${att?.present||0}`, M+8, y+8)
-      .text(`Days Absent: ${(att?.total||0)-(att?.present||0)}`, M+155, y+8)
-      .text(`Total Days: ${att?.total||0}`, M+295, y+8)
-      .text(`Rate: ${attPct}%`, M+400, y+8);
-    y += 28;
+    doc.fillColor('#374151').fontSize(11).font('Helvetica-Bold').text('Attendance Summary', M, y); y += 13;
+    doc.rect(M, y, W, 28).fill('#f0fdf4');
+    doc.fillColor('#374151').fontSize(10).font('Helvetica-Bold')
+      .text(`Days Present: ${att?.present||0}`, M+8, y+9)
+      .text(`Days Absent: ${(att?.total||0)-(att?.present||0)}`, M+155, y+9)
+      .text(`Total Days: ${att?.total||0}`, M+295, y+9)
+      .text(`Rate: ${attPct}%`, M+400, y+9);
+    y += 32;
 
     // ── PROMOTED / NEXT TERM ──
     const dbPromotedTo = conductData?.promoted_to || promoted_to;
     if (dbPromotedTo || next_term_begins) {
       doc.rect(M, y, W, 28).fillAndStroke('#fffbeb','#fde68a');
-      doc.fillColor('#92400e').fontSize(8.5).font('Helvetica-Bold');
+      doc.fillColor('#92400e').fontSize(11).font('Helvetica-Bold');
       if (dbPromotedTo) doc.text(`PROMOTED TO: ${dbPromotedTo}`, M+8, y+9);
       if (next_term_begins) doc.text(`NEXT TERM BEGINS: ${next_term_begins}`, dbPromotedTo?M+230:M+8, y+9);
-      y += 32;
+      y += 34;
     }
 
     // ── CONDUCT & REMARKS ──
-    doc.fillColor('#1e3a5f').fontSize(9).font('Helvetica-Bold').text('CONDUCT & REMARKS', M, y); y += 11;
-    doc.rect(M, y, W, 62).fillAndStroke('#f8fafc','#e2e8f0');
+    doc.fillColor('#1e3a5f').fontSize(11).font('Helvetica-Bold').text('CONDUCT & REMARKS', M, y); y += 14;
+    doc.rect(M, y, W, 74).fillAndStroke('#f8fafc','#e2e8f0');
     const conductItems = [
       {label:'CONDUCT',           value: conductData?.conduct||''},
       {label:'INTEREST',          value: conductData?.interest||''},
@@ -201,18 +202,18 @@ exports.studentReport = async (req, res) => {
         const item = conductItems[ci];
         const x = col===0 ? M+8 : M+W/2+8;
         const itemY = y+8 + ri*26;
-        doc.fillColor('#6b7280').fontSize(7.5).font('Helvetica-Bold').text(item.label+':', x, itemY);
+        doc.fillColor('#6b7280').fontSize(9).font('Helvetica-Bold').text(item.label+':', x, itemY);
         if (item.value) {
-          doc.fillColor('#374151').fontSize(8).font('Helvetica').text(item.value, x+8, itemY+10, {width:W/2-24});
+          doc.fillColor('#1e3a5f').fontSize(10).font('Helvetica-Bold').text(item.value, x+8, itemY+12, {width:W/2-24});
         } else {
-          doc.moveTo(x+8, itemY+18).lineTo(x+W/2-20, itemY+18).strokeColor('#94a3b8').lineWidth(0.5).stroke();
+          doc.moveTo(x+8, itemY+22).lineTo(x+W/2-20, itemY+22).strokeColor('#94a3b8').lineWidth(0.5).stroke();
         }
       });
     });
-    y += 68;
+    y += 80;
 
     // ── FOOTER ──
-    doc.fillColor('#374151').fontSize(8.5).font('Helvetica-Bold')
+    doc.fillColor('#374151').fontSize(10).font('Helvetica-Bold')
       .text(`Generated: ${new Date().toLocaleDateString('en-GH',{day:'numeric',month:'long',year:'numeric'})} | ${SCHOOL_NAME}`, M, y, {width:W, align:'center'});
 
     doc.end();
