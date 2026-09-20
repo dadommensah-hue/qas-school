@@ -1351,7 +1351,12 @@ async function loadAttStudents() {
     attStudents = await get(`/students/class/${encodeURIComponent(cls)}`);
     const existing = await get(`/attendance/class/${encodeURIComponent(cls)}?date=${date}`);
     const eMap = {}; (existing||[]).forEach(e => { eMap[e.student_id] = e.status; });
-    document.getElementById('attStudentList').innerHTML = `
+    const attListEl = document.getElementById('attStudentsWrap') || document.getElementById('attStudentList');
+    if (!attListEl) {
+      console.warn('loadAttStudents: no container found (attStudentsWrap or attStudentList)');
+      return;
+    }
+    attListEl.innerHTML = `
     <strong style="font-size:13px;">${attStudents.length} students in ${cls}</strong>
     <div class="table-wrap" style="margin-top:10px;">
     <table><thead><tr><th>#</th><th>Student</th><th>Present</th><th>Absent</th><th>Late</th></tr></thead>
@@ -1361,7 +1366,11 @@ async function loadAttStudents() {
     <td style="text-align:center;"><input type="radio" name="att_${s.id}" value="absent" ${eMap[s.id]==='absent'?'checked':''}></td>
     <td style="text-align:center;"><input type="radio" name="att_${s.id}" value="late" ${eMap[s.id]==='late'?'checked':''}></td>
     </tr>`).join('')}</tbody></table></div>`;
-  } catch(e){ toast(e.message,'error'); }
+  } catch(e) {
+    const attListEl2 = document.getElementById('attStudentsWrap') || document.getElementById('attStudentList');
+    if (attListEl2) attListEl2.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-circle"></i><h4>Error loading students</h4><p>'+e.message+'</p></div>';
+    else toast(e.message,'error');
+  }
 }
 
 function markAllPresent() {
@@ -1369,10 +1378,12 @@ function markAllPresent() {
 }
 
 async function submitAttendance() {
-  const cls = document.getElementById('att_class').value;
-  const date = document.getElementById('att_date').value;
+  const cls = document.getElementById('att_class')?.value;
+  const date = document.getElementById('att_date')?.value;
+  if (!cls || !date) { toast('Class or date not found','error'); return; }
   const records = attStudents.map(s => { const sel = document.querySelector(`input[name="att_${s.id}"]:checked`); return {student_id:s.id,status:sel?sel.value:'present'}; });
-  try { await post('/attendance', {class:cls,date,attendance:records,term:'Term 1'}); toast('Attendance saved!','success'); }
+  const term = document.getElementById('att_term')?.value || 'Term 1';
+  try { await post('/attendance', {class:cls,date,attendance:records,term}); toast('Attendance saved!','success'); }
   catch(e){ toast(e.message,'error'); }
 }
 
@@ -1385,8 +1396,11 @@ function setTab(btn, sectionId) {
 }
 
 async function loadAttSummary() {
+  const summaryEl = document.getElementById('attSummary');
+  if (!summaryEl) return;
+  try {
   const data = await get('/attendance/summary?term=Term 1');
-  document.getElementById('attSummary').innerHTML = `
+  summaryEl.innerHTML = `
   <div class="card"><div class="card-header"><h3>📊 Attendance Summary</h3></div>
   <div class="card-body table-wrap">
     <table><thead><tr><th>Student</th><th>Class</th><th>Present</th><th>Absent</th><th>Rate</th></tr></thead>
@@ -1397,6 +1411,7 @@ async function loadAttSummary() {
       <td><div style="display:flex;align-items:center;gap:8px;"><div class="progress-bar" style="width:70px;"><div class="progress-fill" style="width:${pct}%;background:${pct>=80?'var(--success)':pct>=60?'var(--warning)':'var(--danger)'};"></div></div><span style="font-size:12px;font-weight:600;">${pct}%</span></div></td>
       </tr>`;}).join('')}</tbody></table>
   </div></div>`;
+  } catch(e) { summaryEl.innerHTML = '<div class="empty-state"><h4>Error loading summary</h4><p>'+e.message+'</p></div>'; }
 }
 
 // ────────────────────────────────────────────
@@ -2412,7 +2427,8 @@ async function teacherConduct() {
   var assignedClasses = [];
   try {
     var ca = await get('/teachers/my-classes');
-    assignedClasses = (ca||[]).map(function(a){return a.assigned_class;}).filter(function(c){return c&&c!=='Basic 9';});
+    // API returns array of strings directly
+    assignedClasses = (ca||[]).map(function(a){return typeof a==='string'?a:(a.assigned_class||'');}).filter(function(c){return c&&c!=='Basic 9';});
     if (assignedClasses.length) USER.assignedClasses = assignedClasses;
   } catch(e){}
 
@@ -2442,9 +2458,12 @@ async function loadTeacherConduct() {
   var cls = document.getElementById('tc_class')?.value||'Basic 1';
   var term = document.getElementById('tc_term')?.value||'Term 1';
   var examType = document.getElementById('tc_type')?.value||'end_of_term';
+  const tcEl = document.getElementById('tconductTable');
+  if (!tcEl) return; // page not rendered yet
+  tcEl.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
   try {
     var data = await get('/conduct/class/'+encodeURIComponent(cls)+'?term='+encodeURIComponent(term)+'&exam_type='+examType);
-    document.getElementById('tconductTable').innerHTML = data?.length ? '<table><thead><tr><th>Student</th><th>Conduct</th><th>Interest</th><th>Attitude</th><th>Teacher Remark</th><th>Action</th></tr></thead><tbody>'
+    tcEl.innerHTML = data?.length ? '<table><thead><tr><th>Student</th><th>Conduct</th><th>Interest</th><th>Attitude</th><th>Teacher Remark</th><th>Action</th></tr></thead><tbody>'
     + data.map(function(s){ return '<tr><td><strong>'+s.full_name+'</strong></td><td>'+(s.conduct||'—')+'</td><td>'+(s.interest||'—')+'</td><td>'+(s.attitude||'—')+'</td><td>'+(s.teacher_remark||'—')+'</td><td><button class="btn btn-info btn-sm" onclick="editConductTeacherModal('+s.id+',\''+s.full_name.replace(/'/g,"\\'")+'\')"><i class="fas fa-edit"></i></button></td></tr>'; }).join('')
     + '</tbody></table>' : '<div class="empty-state"><h4>No students found</h4></div>';
   } catch(e){ toast(e.message,'error'); }
@@ -3248,7 +3267,7 @@ async function teacherAttendance() {
   if (!assignedClasses.length) {
     try {
       var ca = await get('/teachers/my-classes');
-      assignedClasses = (ca||[]).map(function(a){return a.assigned_class;}).filter(Boolean);
+      assignedClasses = (ca||[]).map(function(a){return typeof a==='string'?a:(a.assigned_class||'');}).filter(Boolean);
       if (assignedClasses.length) USER.assignedClasses = assignedClasses;
     } catch(e){}
   }
