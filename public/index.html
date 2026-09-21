@@ -1357,15 +1357,27 @@ async function loadAttStudents() {
       return;
     }
     attListEl.innerHTML = `
-    <strong style="font-size:13px;">${attStudents.length} students in ${cls}</strong>
-    <div class="table-wrap" style="margin-top:10px;">
-    <table><thead><tr><th>#</th><th>Student</th><th>Present</th><th>Absent</th><th>Late</th></tr></thead>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+      <strong style="font-size:14px;color:#1e3a5f;">${attStudents.length} students in ${cls} — ${new Date(date).toLocaleDateString('en-GH',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</strong>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-success btn-sm" onclick="markAllPresent()" style="font-weight:700;"><i class="fas fa-check-double"></i> All Present</button>
+        <button class="btn btn-primary btn-sm" onclick="submitAttendance()" style="font-weight:700;"><i class="fas fa-save"></i> Save Attendance</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+    <table><thead><tr><th>#</th><th>Student</th><th style="text-align:center;">Present</th><th style="text-align:center;">Absent</th><th style="text-align:center;">Late</th></tr></thead>
     <tbody>${attStudents.map((s,i)=>`
-    <tr><td>${i+1}</td><td><strong>${s.full_name}</strong></td>
-    <td style="text-align:center;"><input type="radio" name="att_${s.id}" value="present" ${(eMap[s.id]||'present')==='present'?'checked':''}></td>
-    <td style="text-align:center;"><input type="radio" name="att_${s.id}" value="absent" ${eMap[s.id]==='absent'?'checked':''}></td>
-    <td style="text-align:center;"><input type="radio" name="att_${s.id}" value="late" ${eMap[s.id]==='late'?'checked':''}></td>
-    </tr>`).join('')}</tbody></table></div>`;
+    <tr style="background:${i%2===0?'#fff':'#f8fafc'};">
+      <td style="font-weight:600;color:#6b7280;">${i+1}</td>
+      <td><strong style="color:#1e3a5f;">${s.full_name}</strong></td>
+      <td style="text-align:center;"><input type="radio" name="att_${s.id}" value="present" ${(eMap[s.id]||'present')==='present'?'checked':''}></td>
+      <td style="text-align:center;"><input type="radio" name="att_${s.id}" value="absent" ${eMap[s.id]==='absent'?'checked':''}></td>
+      <td style="text-align:center;"><input type="radio" name="att_${s.id}" value="late" ${eMap[s.id]==='late'?'checked':''}></td>
+    </tr>`).join('')}</tbody></table></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0;">
+      <button class="btn btn-success" onclick="markAllPresent()" style="font-size:15px;font-weight:700;padding:10px 24px;"><i class="fas fa-check-double"></i> Mark All Present</button>
+      <button class="btn btn-primary" onclick="submitAttendance()" style="font-size:15px;font-weight:700;padding:10px 24px;"><i class="fas fa-save"></i> Save Attendance</button>
+    </div>`;
   } catch(e) {
     const attListEl2 = document.getElementById('attStudentsWrap') || document.getElementById('attStudentList');
     if (attListEl2) attListEl2.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-circle"></i><h4>Error loading students</h4><p>'+e.message+'</p></div>';
@@ -3293,7 +3305,9 @@ async function teacherAttendance() {
     + '<select class="form-control" id="att_term" style="max-width:110px;">' + TERMS.map(function(t){return '<option>'+t+'</option>';}).join('') + '</select></div>'
     + '<div class="form-group" style="margin:0;"><label style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Date</label>'
     + '<input type="date" class="form-control" id="att_date" value="'+new Date().toISOString().split('T')[0]+'" style="max-width:140px;"/></div>'
-    + '<button class="btn btn-primary btn-sm" onclick="loadAttStudents()"><i class="fas fa-search"></i> Load</button>'
+    + '<button class="btn btn-outline btn-sm" onclick="loadAttStudents()"><i class="fas fa-search"></i> Load</button>'
+    + '<button class="btn btn-success btn-sm" onclick="markAllPresent()"><i class="fas fa-check-double"></i> All Present</button>'
+    + '<button class="btn btn-primary btn-sm" onclick="submitAttendance()"><i class="fas fa-save"></i> Save Attendance</button>'
     + '</div>'
     + '<div id="attStudentsWrap"><div class="loading-overlay"><div class="spinner"></div></div></div>';
   loadAttStudents();
