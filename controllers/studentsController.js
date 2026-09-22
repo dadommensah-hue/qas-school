@@ -15,9 +15,8 @@ async function nextId() {
 
 function safeStr(v) { return (v === undefined || v === null) ? '' : String(v); }
 function safePhoto(v) {
-  // Turso cannot store huge base64 blobs - store only if reasonable size
   if (!v || typeof v !== 'string' || v.length < 10) return null;
-  if (v.length > 500000) return null; // skip if over 500KB
+  if (v.length > 1500000) return null; // skip if over 1.5MB
   return v;
 }
 

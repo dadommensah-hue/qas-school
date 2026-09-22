@@ -4,7 +4,7 @@ const { query, run, get } = require('../database');
 function safeStr(v) { return (v === undefined || v === null) ? '' : String(v); }
 function safePhoto(v) {
   if (!v || typeof v !== 'string' || v.length < 10) return null;
-  if (v.length > 500000) return null;
+  if (v.length > 1500000) return null;
   return v;
 }
 

@@ -945,8 +945,23 @@ function previewPhoto(input, imgId, dataId) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = e => {
-    document.getElementById(imgId).src = e.target.result;
-    document.getElementById(dataId).value = e.target.result;
+    // Compress image before storing to stay within DB limits
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 400;
+      let w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX/w); w = MAX; }
+        else { w = Math.round(w * MAX/h); h = MAX; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const compressed = canvas.toDataURL('image/jpeg', 0.75);
+      document.getElementById(imgId).src = compressed;
+      document.getElementById(dataId).value = compressed;
+    };
+    img.src = e.target.result;
   };
   reader.readAsDataURL(file);
 }
@@ -1038,7 +1053,16 @@ async function updateStudent(id) {
       status: document.getElementById('es_status').value,
       profile_photo: document.getElementById('editPhotoData').value || null
     });
-    closeModal(); toast('Student updated!','success'); students();
+    // Update USER.profile_photo in memory if this is the logged-in user
+    const updatedPhoto = document.getElementById('editPhotoData')?.value;
+    if (USER && String(USER.id) === String(id) && updatedPhoto) {
+      USER.profile_photo = updatedPhoto;
+      localStorage.setItem('qas_user', JSON.stringify(USER));
+      // Refresh all portal avatars
+      document.querySelectorAll('.portal-avatar img').forEach(img => { img.src = updatedPhoto; });
+      document.querySelectorAll('#sidebarAvatar img, #topbarAvatar img').forEach(img => { img.src = updatedPhoto; });
+    }
+    closeModal(); toast('Student updated! Photo saved successfully.','success'); students();
   } catch(e){ toast(e.message,'error'); }
 }
 
@@ -1204,7 +1228,15 @@ async function updateTeacher(id) {
       status: document.getElementById('et_status').value,
       profile_photo: document.getElementById('etPhotoData').value || null
     });
-    closeModal(); toast('Teacher updated!','success'); teachers();
+    // Update USER.profile_photo in memory if this is the logged-in user
+    const updatedPhotoT = document.getElementById('etPhotoData')?.value;
+    if (USER && String(USER.id) === String(id) && updatedPhotoT) {
+      USER.profile_photo = updatedPhotoT;
+      localStorage.setItem('qas_user', JSON.stringify(USER));
+      document.querySelectorAll('.portal-avatar img').forEach(img => { img.src = updatedPhotoT; });
+      document.querySelectorAll('#sidebarAvatar img, #topbarAvatar img').forEach(img => { img.src = updatedPhotoT; });
+    }
+    closeModal(); toast('Teacher updated! Photo saved successfully.','success'); teachers();
   } catch(e){ toast(e.message,'error'); }
 }
 
@@ -4349,6 +4381,17 @@ async function downloadMidtermPDF() {
     const btns = document.querySelectorAll('[onclick="downloadMidtermPDF()"]');
     btns.forEach(b=>{ b.disabled=false; b.innerHTML='<i class="fas fa-file-pdf"></i> Download Mid-Term PDF'; });
   }
+}
+
+// Refresh all profile photo displays with a new photo URL/data
+function refreshAllAvatars(photoData) {
+  if (!photoData) return;
+  USER.profile_photo = photoData;
+  localStorage.setItem('qas_user', JSON.stringify(USER));
+  document.querySelectorAll('.portal-avatar img').forEach(img => img.src = photoData);
+  // Sidebar avatar
+  const sidebarAv = document.querySelector('.sidebar-profile img, .sidebar-avatar img');
+  if (sidebarAv) sidebarAv.src = photoData;
 }
 </script>
 
