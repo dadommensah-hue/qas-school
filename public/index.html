@@ -1518,18 +1518,40 @@ async function openGradeEntry() {
   const term = document.getElementById('g_term')?.value||'Term 1';
   const subject = document.getElementById('g_subject')?.value||SUBJECTS[0];
   const stdList = await get(`/students/class/${encodeURIComponent(cls)}`);
+  // Fetch existing grades to pre-populate
+  let existingGrades = [];
+  try { existingGrades = await get(`/grades/class/${encodeURIComponent(cls)}?term=${encodeURIComponent(term)}&subject=${encodeURIComponent(subject)}`); } catch(e){}
+  const gradeMap = {};
+  (existingGrades||[]).forEach(g=>{ gradeMap[g.student_id] = g; });
   openModal(`Enter Grades – ${cls} | ${term}`, `
   <div class="form-row" style="margin-bottom:14px;">
-    <div class="form-group"><label>Subject</label><select class="form-control" id="ge_subject">${SUBJECTS.map(s=>`<option ${s===subject?'selected':''}>${s}</option>`).join('')}</select></div>
-    <div class="form-group"><label>Term</label><select class="form-control" id="ge_term">${TERMS.map(t=>`<option ${t===term?'selected':''}>${t}</option>`).join('')}</select></div>
+    <div class="form-group"><label>Subject</label><select class="form-control" id="ge_subject" onchange="reloadGradeInputs('ge_subject','ge_term','${cls}',${JSON.stringify(stdList.map(s=>s.id))},'cs_','es_')">${SUBJECTS.map(s=>`<option ${s===subject?'selected':''}>${s}</option>`).join('')}</select></div>
+    <div class="form-group"><label>Term</label><select class="form-control" id="ge_term" onchange="reloadGradeInputs('ge_subject','ge_term','${cls}',${JSON.stringify(stdList.map(s=>s.id))},'cs_','es_')">${TERMS.map(t=>`<option ${t===term?'selected':''}>${t}</option>`).join('')}</select></div>
   </div>
   <div class="table-wrap"><table><thead><tr><th>Student</th><th>Class Score (/50)</th><th>Exam Score (/50)</th></tr></thead>
-  <tbody>${stdList.map(s=>`<tr><td><strong>${s.full_name}</strong></td>
-    <td><input type="number" class="form-control" id="cs_${s.id}" min="0" max="50" step="0.5" style="width:80px;" placeholder="0"/></td>
-    <td><input type="number" class="form-control" id="es_${s.id}" min="0" max="50" step="0.5" style="width:80px;" placeholder="0"/></td>
-  </tr>`).join('')}</tbody></table></div>`,
+  <tbody id="ge_tbody">${stdList.map(s=>{const eg=gradeMap[s.id]||{}; return `<tr><td><strong>${s.full_name}</strong></td>
+    <td><input type="number" class="form-control" id="cs_${s.id}" min="0" max="50" step="0.5" style="width:80px;" value="${eg.class_score!=null?eg.class_score:''}" placeholder="0"/></td>
+    <td><input type="number" class="form-control" id="es_${s.id}" min="0" max="50" step="0.5" style="width:80px;" value="${eg.exam_score!=null?eg.exam_score:''}" placeholder="0"/></td>
+  </tr>`;}).join('')}</tbody></table></div>`,
   `<button class="btn btn-outline" onclick="closeModal()">Cancel</button>
    <button class="btn btn-primary" onclick="saveGrades('${cls}',${JSON.stringify(stdList.map(s=>s.id))})"><i class="fas fa-save"></i> Save Grades</button>`, true);
+}
+
+async function reloadGradeInputs(subjElId, termElId, cls, studentIds, csPrefix, esPrefix) {
+  const subject = document.getElementById(subjElId)?.value;
+  const term = document.getElementById(termElId)?.value;
+  if (!subject||!term||!cls) return;
+  let existingGrades = [];
+  try { existingGrades = await get(`/grades/class/${encodeURIComponent(cls)}?term=${encodeURIComponent(term)}&subject=${encodeURIComponent(subject)}`); } catch(e){}
+  const gradeMap = {};
+  (existingGrades||[]).forEach(g=>{ gradeMap[g.student_id] = g; });
+  studentIds.forEach(id=>{
+    const csEl = document.getElementById(csPrefix+id);
+    const esEl = document.getElementById(esPrefix+id);
+    const eg = gradeMap[id]||{};
+    if(csEl) csEl.value = eg.class_score!=null ? eg.class_score : '';
+    if(esEl) esEl.value = eg.exam_score!=null ? eg.exam_score : '';
+  });
 }
 
 async function saveGrades(cls, studentIds) {
@@ -3279,19 +3301,25 @@ async function openTeacherGradeEntry() {
   const assignedSubjects = (USER.subjects||[]);
   if (!assignedSubjects.length) { toast('You have no assigned subjects.','error'); return; }
   const stdList=await get(`/students/class/${encodeURIComponent(cls)}`);
+  // Fetch existing grades to pre-populate
+  let existingGrades = [];
+  try { existingGrades = await get(`/grades/class/${encodeURIComponent(cls)}?term=${encodeURIComponent(term)}&subject=${encodeURIComponent(subject)}`); } catch(e){}
+  const gradeMap = {};
+  (existingGrades||[]).forEach(g=>{ gradeMap[g.student_id] = g; });
+  const stdIds = stdList.map(s=>s.id);
   openModal(`Enter Grades – ${cls} | ${term}`, `
   <div class="form-row" style="margin-bottom:14px;">
     <div class="form-group"><label>Subject</label>
-      <select class="form-control" id="tge_subject">${assignedSubjects.map(s=>`<option ${s.subject===subject?'selected':''}>${s.subject}</option>`).join('')}</select></div>
-    <div class="form-group"><label>Term</label><select class="form-control" id="tge_term">${TERMS.map(t=>`<option ${t===term?'selected':''}>${t}</option>`).join('')}</select></div>
+      <select class="form-control" id="tge_subject" onchange="reloadGradeInputs('tge_subject','tge_term','${cls}',${JSON.stringify(stdIds)},'tcs_','tes_')">${assignedSubjects.map(s=>`<option ${s.subject===subject?'selected':''}>${s.subject}</option>`).join('')}</select></div>
+    <div class="form-group"><label>Term</label><select class="form-control" id="tge_term" onchange="reloadGradeInputs('tge_subject','tge_term','${cls}',${JSON.stringify(stdIds)},'tcs_','tes_')">${TERMS.map(t=>`<option ${t===term?'selected':''}>${t}</option>`).join('')}</select></div>
   </div>
   <div class="table-wrap"><table><thead><tr><th>Student</th><th>Class Score (/50)</th><th>Exam Score (/50)</th></tr></thead>
-  <tbody>${stdList.map(s=>`<tr><td><strong>${s.full_name}</strong></td>
-    <td><input type="number" class="form-control" id="tcs_${s.id}" min="0" max="50" step="0.5" style="width:80px;" placeholder="0"/></td>
-    <td><input type="number" class="form-control" id="tes_${s.id}" min="0" max="50" step="0.5" style="width:80px;" placeholder="0"/></td>
-  </tr>`).join('')}</tbody></table></div>`,
+  <tbody id="tge_tbody">${stdList.map(s=>{const eg=gradeMap[s.id]||{}; return `<tr><td><strong>${s.full_name}</strong></td>
+    <td><input type="number" class="form-control" id="tcs_${s.id}" min="0" max="50" step="0.5" style="width:80px;" value="${eg.class_score!=null?eg.class_score:''}" placeholder="0"/></td>
+    <td><input type="number" class="form-control" id="tes_${s.id}" min="0" max="50" step="0.5" style="width:80px;" value="${eg.exam_score!=null?eg.exam_score:''}" placeholder="0"/></td>
+  </tr>`;}).join('')}</tbody></table></div>`,
   `<button class="btn btn-outline" onclick="closeModal()">Cancel</button>
-   <button class="btn btn-primary" onclick="saveTeacherGrades('${cls}',${JSON.stringify(stdList.map(s=>s.id))})"><i class="fas fa-save"></i> Save</button>`, true);
+   <button class="btn btn-primary" onclick="saveTeacherGrades('${cls}',${JSON.stringify(stdIds)})"><i class="fas fa-save"></i> Save</button>`, true);
 }
 
 async function saveTeacherGrades(cls, studentIds) {
