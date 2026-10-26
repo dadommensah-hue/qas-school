@@ -668,15 +668,15 @@ exports.midtermStudentReport = async (req, res) => {
     if (fs.existsSync(LOGO_PATH)) {
       try { doc.image(LOGO_PATH, (pageW-70)/2, curY, {width:70,height:70}); curY+=78; } catch(e){}
     }
-    doc.fontSize(16).font('Helvetica-Bold').fillColor('#1e3a5f')
+    doc.fontSize(15).font('Helvetica-Bold').fillColor('#1e3a5f')
       .text(SCHOOL_NAME, margin, curY, {width:pageW-margin*2, align:'center'}); curY+=22;
-    doc.fontSize(11).font('Helvetica-Bold').fillColor('#374151')
+    doc.fontSize(12).font('Helvetica-Bold').fillColor('#374151')
       .text(SCHOOL_ADDRESS, margin, curY, {width:pageW-margin*2, align:'center'}); curY+=15;
-    doc.fontSize(9).font('Helvetica-Bold').fillColor('#1d4ed8')
+    doc.fontSize(10.5).font('Helvetica-Bold').fillColor('#1d4ed8')
       .text(SCHOOL_MOTTO, margin, curY, {width:pageW-margin*2, align:'center'}); curY+=14;
     doc.moveTo(margin,curY).lineTo(pageW-margin,curY).strokeColor('#1e3a5f').lineWidth(2).stroke(); curY+=6;
     doc.rect(margin,curY,pageW-margin*2,24).fill('#b45309');
-    doc.fontSize(12).font('Helvetica-Bold').fillColor('#fff')
+    doc.fontSize(11).font('Helvetica-Bold').fillColor('#fff')
       .text(`MID-TERM EXAMINATION REPORT – ${termLabel.toUpperCase()} 2026`, margin, curY+6, {width:pageW-margin*2, align:'center'});
     curY+=32;
 
@@ -699,7 +699,7 @@ exports.midtermStudentReport = async (req, res) => {
       doc.fillColor('#93c5fd').fontSize(7).font('Helvetica').text('PHOTO',pageW-margin-photoW-5,curY+infoH/2-4,{width:photoW-2,align:'center'});
     }
     const textW = pageW-margin*2-photoW-20;
-    doc.fillColor('#1e40af').fontSize(10).font('Helvetica-Bold')
+    doc.fillColor('#1e40af').fontSize(11).font('Helvetica-Bold')
       .text(`Name: ${student.full_name}`, margin+10, iy, {width:textW})
       .text(`Class: ${student.class}`, margin+10, iy+16, {width:textW/2})
       .text(`Student ID: ${student.student_id}`, margin+textW/2, iy+16, {width:textW/2})
@@ -710,36 +710,36 @@ exports.midtermStudentReport = async (req, res) => {
     curY+=infoH+12;
 
     // Subject table
-    doc.fontSize(10).font('Helvetica-Bold').fillColor('#1e3a5f').text('Academic Performance', margin, curY); curY+=14;
+    doc.fontSize(13).font('Helvetica-Bold').fillColor('#1e3a5f').text('Academic Performance', margin, curY); curY+=16;
     const tCols = [margin, margin+230, margin+325, margin+380, margin+430];
-    doc.rect(margin,curY,pageW-margin*2,18).fill('#1e3a5f');
-    doc.fillColor('#fff').fontSize(8.5).font('Helvetica-Bold');
+    doc.rect(margin,curY,pageW-margin*2,20).fill('#1e3a5f');
+    doc.fillColor('#fff').fontSize(11).font('Helvetica-Bold');
     ['SUBJECT','EXAM SCORE (100)','GRADE','REMARKS'].forEach((h,i)=>
-      doc.text(h, tCols[i]+3, curY+4, {width:(tCols[i+1]||(pageW-margin))-tCols[i]-4}));
-    curY+=18;
+      doc.text(h, tCols[i]+3, curY+5, {width:(tCols[i+1]||(pageW-margin))-tCols[i]-4}));
+    curY+=20;
 
     let totalScore=0;
     grades.forEach((g,i)=>{
       const sc = parseFloat(g.exam_score||0);
       totalScore+=sc;
       const gradeCol = g.grade==='A'?'#16a34a':g.grade==='B'?'#2563eb':g.grade==='C'?'#0891b2':g.grade==='D'?'#d97706':'#dc2626';
-      doc.rect(margin,curY,pageW-margin*2,16).fill(i%2===0?'#fff':'#f8fafc');
-      doc.fillColor('#374151').fontSize(8.5).font('Helvetica')
+      doc.rect(margin,curY,pageW-margin*2,18).fill(i%2===0?'#fff':'#f8fafc');
+      doc.fillColor('#374151').fontSize(11).font('Helvetica')
         .text(g.subject, tCols[0]+3, curY+3, {width:tCols[1]-tCols[0]-4})
         .text(sc.toFixed(1), tCols[1]+3, curY+3);
-      doc.fillColor(gradeCol).font('Helvetica-Bold').text(g.grade||'—', tCols[2]+3, curY+3);
-      doc.fillColor('#374151').font('Helvetica').text(g.remarks||'', tCols[3]+3, curY+3, {width:pageW-margin-tCols[3]-4});
-      curY+=16;
+      doc.fillColor(gradeCol).fontSize(12).font('Helvetica-Bold').text(g.grade||'—', tCols[2]+3, curY+3);
+      doc.fillColor('#374151').fontSize(11).font('Helvetica').text(g.remarks||'', tCols[3]+3, curY+3, {width:pageW-margin-tCols[3]-4});
+      curY+=18;
     });
 
     const avg = grades.length ? (totalScore/grades.length).toFixed(1) : '0.0';
     const overallGrade = parseFloat(avg)>=80?'A':parseFloat(avg)>=70?'B':parseFloat(avg)>=60?'C':parseFloat(avg)>=50?'D':'F';
-    doc.rect(margin,curY,pageW-margin*2,20).fill('#dbeafe');
-    doc.fillColor('#1e40af').fontSize(9).font('Helvetica-Bold')
+    doc.rect(margin,curY,pageW-margin*2,22).fill('#dbeafe');
+    doc.fillColor('#1e40af').fontSize(11).font('Helvetica-Bold')
       .text('AVERAGE / OVERALL', tCols[0]+3, curY+5)
       .text(avg, tCols[1]+3, curY+5)
       .text(overallGrade, tCols[2]+3, curY+5);
-    curY+=30;
+    curY+=32;
 
     doc.fillColor('#374151').fontSize(10).font('Helvetica-Bold')
       .text(`Generated: ${new Date().toLocaleDateString('en-GH',{day:'numeric',month:'long',year:'numeric'})} | ${SCHOOL_NAME}`, margin, curY, {width:pageW-margin*2, align:'center'});
