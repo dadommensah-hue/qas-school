@@ -83,6 +83,7 @@ exports.delete = async (req, res) => {
     await run("DELETE FROM attendance WHERE student_id=?", [req.params.id]);
     await run("DELETE FROM grades WHERE student_id=?", [req.params.id]);
     await run("DELETE FROM mock_exam WHERE student_id=?", [req.params.id]);
+    await run("DELETE FROM midterm_grades WHERE student_id=?", [req.params.id]);
     await run("DELETE FROM report_conduct WHERE student_id=?", [req.params.id]);
     await run("DELETE FROM fees WHERE student_id=?", [req.params.id]);
     await run("DELETE FROM students WHERE id=?", [req.params.id]);
