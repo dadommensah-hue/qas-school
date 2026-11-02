@@ -114,7 +114,6 @@ router.get('/analytics/dashboard', authMiddleware, analytics.dashboard);
 router.get('/analytics/ai-insights', authMiddleware, analytics.aiInsights);
 router.get('/analytics/subjects', authMiddleware, analytics.subjectAnalysis);
 router.get('/analytics/term-comparison', authMiddleware, analytics.termComparison);
-router.get('/analytics/midterm-subjects', authMiddleware, analytics.midtermSubjects);
 
 // ── REPORTS ──
 router.get('/reports/student/:id', authMiddleware, reports.studentReport);
