@@ -117,3 +117,27 @@ exports.termComparison = async (req, res) => {
     res.json(data);
   } catch (e) { res.status(500).json({ error: e.message }); }
 };
+
+exports.midtermSubjects = async (req, res) => {
+  try {
+    const subjects = await query(`SELECT subject,
+      AVG(exam_score) as avg_score,
+      COUNT(CASE WHEN grade='A' THEN 1 END) as grade_a,
+      COUNT(CASE WHEN grade='B' THEN 1 END) as grade_b,
+      COUNT(CASE WHEN grade='C' THEN 1 END) as grade_c,
+      COUNT(CASE WHEN grade='D' THEN 1 END) as grade_d,
+      COUNT(CASE WHEN grade='F' THEN 1 END) as grade_f,
+      COUNT(*) as total_students
+      FROM midterm_grades GROUP BY subject ORDER BY avg_score DESC`);
+    const gradeDistribution = await query(`SELECT grade, COUNT(*) as count FROM midterm_grades GROUP BY grade ORDER BY grade`);
+    const termAvg = await query(`SELECT term, AVG(exam_score) as avg FROM midterm_grades GROUP BY term ORDER BY term`);
+    const topStudents = await query(`SELECT s.full_name, s.class, AVG(g.exam_score) as avg_score
+      FROM students s JOIN midterm_grades g ON s.id=g.student_id
+      GROUP BY s.id ORDER BY avg_score DESC LIMIT 5`);
+    const atRisk = await query(`SELECT s.full_name, s.class, AVG(g.exam_score) as avg_score
+      FROM students s JOIN midterm_grades g ON s.id=g.student_id
+      GROUP BY s.id HAVING avg_score < 50 ORDER BY avg_score ASC LIMIT 5`);
+    const overallRow = await get(`SELECT AVG(exam_score) as avg, COUNT(DISTINCT student_id) as students FROM midterm_grades`);
+    res.json({ subjects, gradeDistribution, termAvg, topStudents, atRisk, overallRow });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+};

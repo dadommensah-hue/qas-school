@@ -871,233 +871,383 @@ function eventBadge(t){ return {exam:'danger',holiday:'success',meeting:'info',s
 async function analytics() {
   document.getElementById('pageContent').innerHTML = `<div class="loading-overlay"><div class="spinner"></div></div>`;
   try {
-    const [d, insights, subjects] = await Promise.all([
-      get('/analytics/dashboard'),
+    const [insights, subjects, mtData, termComp] = await Promise.all([
       get('/analytics/ai-insights'),
-      get('/analytics/subjects')
+      get('/analytics/subjects'),
+      get('/analytics/midterm-subjects'),
+      get('/analytics/term-comparison')
     ]);
-    const ts = d.totalStudents||0, bs = d.boardingStudents||0, ds = d.dayStudents||0, tt = d.totalTeachers||0;
-    const ar = d.attendanceRate||0, tp = d.todayAttendance?.present||0, tot = d.todayAttendance?.total||0, avg = d.avgScore||0;
-    const clsColors = ['#3b82f6','#22c55e','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#ec4899','#14b8a6'];
 
-    // ── stat card builder ──
-    const statCard = (grad,icon,label,val,sub,trend) => `
-      <div style="border-radius:18px;padding:20px 18px;background:${grad};color:#fff;position:relative;overflow:hidden;
-        box-shadow:0 8px 24px rgba(0,0,0,.15);transition:transform .2s;cursor:default;"
-        onmouseenter="this.style.transform='translateY(-4px)'" onmouseleave="this.style.transform=''">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
-          <div>
-            <div style="font-size:12px;font-weight:700;opacity:.88;letter-spacing:.3px;margin-bottom:6px;">${label}</div>
-            <div style="font-size:38px;font-weight:900;line-height:1;letter-spacing:-1px;">${val}</div>
-            <div style="font-size:11px;opacity:.78;margin-top:6px;">${sub}</div>
-            ${trend?`<div style="font-size:11px;margin-top:4px;display:flex;align-items:center;gap:3px;"><span style="background:rgba(255,255,255,.2);border-radius:8px;padding:2px 7px;">${trend}</span></div>`:''}
-          </div>
-          <div style="font-size:42px;opacity:.25;line-height:1;flex-shrink:0;">${icon}</div>
-        </div>
-        <div style="position:absolute;bottom:-16px;right:-16px;width:70px;height:70px;background:rgba(255,255,255,.08);border-radius:50%;"></div>
-      </div>`;
+    const subList = Array.isArray(subjects) ? subjects : [];
+    const mt = mtData || {};
+    const mtSubList = Array.isArray(mt.subjects) ? mt.subjects : [];
+    const mtGradeDist = Array.isArray(mt.gradeDistribution) ? mt.gradeDistribution : [];
+    const mtTopList = Array.isArray(mt.topStudents) ? mt.topStudents : [];
+    const mtAtRiskList = Array.isArray(mt.atRisk) ? mt.atRisk : [];
+    const mtOverall = mt.overallRow || {};
+    const termList = Array.isArray(termComp) ? termComp : [];
+
+    // Grade distribution from end-of-term subjects data
+    const gradeMap = {};
+    subList.forEach(s => {
+      ['A','B','C','D','F'].forEach(g => {
+        gradeMap[g] = (gradeMap[g]||0) + parseInt(s['grade_'+g.toLowerCase()]||0);
+      });
+    });
+
+    const insightColors = { success:'#22c55e', warning:'#f59e0b', danger:'#ef4444', info:'#3b82f6' };
+    const insList = Array.isArray(insights?.insights) ? insights.insights : [];
+
+    const termBarColors = ['#3b82f6','#8b5cf6','#f59e0b'];
 
     document.getElementById('pageContent').innerHTML = `
     <style>
-      .ai-dash-hdr{display:flex;align-items:center;gap:16px;margin-bottom:22px;}
-      .ai-dash-hdr-icon{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#3b82f6,#7c3aed);
-        display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;}
-      .ai-dash-hdr-title{font-size:22px;font-weight:900;color:#0f2244;}
-      .ai-dash-hdr-sub{font-size:12.5px;color:#6b7280;margin-top:3px;}
-      .ai-eng-pill{margin-left:auto;display:inline-flex;align-items:center;gap:8px;background:#f5f3ff;
-        border:1.5px solid #ddd6fe;border-radius:22px;padding:7px 16px;font-size:12px;font-weight:700;color:#7c3aed;}
-      .ai-eng-live{width:9px;height:9px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.2);
-        animation:aipulse 2s infinite;}
-      @keyframes aipulse{0%,100%{box-shadow:0 0 0 3px rgba(34,197,94,.25)}50%{box-shadow:0 0 0 6px rgba(34,197,94,.05)}}
-      .ai-stats-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:20px;}
-      @media(max-width:1100px){.ai-stats-grid{grid-template-columns:repeat(3,1fr);}}
-      @media(max-width:640px){.ai-stats-grid{grid-template-columns:repeat(2,1fr);}}
-      .ai-row2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px;}
-      .ai-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:18px;}
-      @media(max-width:900px){.ai-row2,.ai-row3{grid-template-columns:1fr;}}
-      .ai-cc{background:#fff;border-radius:18px;padding:22px;box-shadow:0 4px 20px rgba(0,0,0,.07);}
-      .ai-cc-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
-      .ai-cc-ttl{font-size:14px;font-weight:800;color:#0f2244;display:flex;align-items:center;gap:9px;}
-      .ai-cc-ico{width:34px;height:34px;border-radius:10px;background:#eff6ff;display:flex;align-items:center;justify-content:center;font-size:16px;}
-      .ai-week-sel{font-size:12px;border:1.5px solid #e5e7eb;border-radius:9px;padding:5px 12px;
-        background:#fff;color:#374151;cursor:pointer;outline:none;font-weight:600;}
-      .ai-insight-list{display:flex;flex-direction:column;gap:10px;margin-top:4px;}
-      .ai-ins-row{display:flex;gap:12px;align-items:flex-start;padding:12px;border-radius:12px;background:#f9fafb;border-left:4px solid var(--ins-col);}
-      .ai-ins-ico{width:36px;height:36px;border-radius:50%;background:var(--ins-col);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
-      .ai-ins-title{font-size:12px;font-weight:700;color:#0f2244;}
-      .ai-ins-msg{font-size:11.5px;color:#6b7280;margin-top:2px;line-height:1.45;}
-      .ai-doughnut-wrap{display:flex;gap:16px;align-items:center;}
-      .ai-doughnut-legend{flex:1;display:flex;flex-direction:column;gap:7px;}
-      .ai-dleg{display:flex;align-items:center;gap:8px;font-size:12px;}
-      .ai-dleg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
-      .ai-event-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;
-        background:#f9fafb;margin-bottom:8px;border-left:4px solid #2563eb;}
-      .ai-event-ico{width:38px;height:38px;background:#eff6ff;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+      .aa-hdr{display:flex;align-items:center;gap:14px;margin-bottom:22px;flex-wrap:wrap;}
+      .aa-hdr-icon{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#3b82f6,#7c3aed);
+        display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;}
+      .aa-hdr-title{font-size:21px;font-weight:900;color:#0f2244;}
+      .aa-hdr-sub{font-size:12px;color:#6b7280;margin-top:2px;}
+      .aa-eng-pill{margin-left:auto;display:inline-flex;align-items:center;gap:7px;background:#f5f3ff;
+        border:1.5px solid #ddd6fe;border-radius:22px;padding:6px 14px;font-size:12px;font-weight:700;color:#7c3aed;}
+      .aa-pulse{width:8px;height:8px;border-radius:50%;background:#22c55e;animation:aapulse 2s infinite;}
+      @keyframes aapulse{0%,100%{box-shadow:0 0 0 3px rgba(34,197,94,.25)}50%{box-shadow:0 0 0 6px rgba(34,197,94,.05)}}
+
+      /* Insight cards row */
+      .aa-ins-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-bottom:22px;}
+      .aa-ins-card{background:#fff;border-radius:16px;padding:18px 16px;box-shadow:0 4px 18px rgba(0,0,0,.07);
+        border-left:5px solid var(--ic);display:flex;gap:14px;align-items:flex-start;}
+      .aa-ins-ico{width:40px;height:40px;border-radius:50%;background:var(--ic);display:flex;align-items:center;
+        justify-content:center;font-size:18px;flex-shrink:0;color:#fff;}
+      .aa-ins-ttl{font-size:13px;font-weight:800;color:#0f2244;margin-bottom:4px;}
+      .aa-ins-msg{font-size:11.5px;color:#6b7280;line-height:1.5;}
+
+      /* Section headers */
+      .aa-sec-hdr{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:900;color:#0f2244;margin-bottom:14px;}
+      .aa-sec-dot{width:10px;height:10px;border-radius:50%;}
+
+      /* Cards */
+      .aa-card{background:#fff;border-radius:18px;padding:22px;box-shadow:0 4px 20px rgba(0,0,0,.07);margin-bottom:18px;}
+      .aa-card-ttl{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:800;color:#0f2244;margin-bottom:16px;}
+      .aa-card-ico{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;}
+
+      /* Two-col grid */
+      .aa-row2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+      .aa-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;}
+      @media(max-width:900px){.aa-row2,.aa-row3{grid-template-columns:1fr;}}
+
+      /* Subject table */
+      .aa-subj-table{width:100%;border-collapse:collapse;font-size:12px;}
+      .aa-subj-table th{background:#f1f5f9;color:#64748b;font-weight:700;padding:8px 10px;text-align:left;font-size:11px;}
+      .aa-subj-table td{padding:9px 10px;border-bottom:1px solid #f1f5f9;color:#374151;}
+      .aa-subj-table tr:last-child td{border-bottom:none;}
+      .aa-subj-table tr:hover td{background:#f8fafc;}
+      .aa-grade-badge{display:inline-block;padding:2px 9px;border-radius:99px;font-size:10px;font-weight:800;}
+      .aa-bar-bg{background:#e5e7eb;border-radius:99px;height:8px;overflow:hidden;}
+      .aa-bar-fill{height:8px;border-radius:99px;transition:width .4s;}
+
+      /* Student rows */
+      .aa-stu-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f1f5f9;}
+      .aa-stu-row:last-child{border-bottom:none;}
+      .aa-stu-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+        font-size:13px;font-weight:800;color:#fff;flex-shrink:0;}
+      .aa-stu-name{font-size:12.5px;font-weight:700;color:#0f2244;}
+      .aa-stu-cls{font-size:11px;color:#9ca3af;}
+      .aa-stu-score{margin-left:auto;font-size:14px;font-weight:900;}
+
+      /* Doughnut wrap */
+      .aa-donut-wrap{display:flex;gap:18px;align-items:center;flex-wrap:wrap;}
+      .aa-dleg{display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:6px;}
+      .aa-dleg-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
     </style>
 
-    <!-- Header -->
-    <div class="ai-dash-hdr">
-      <div class="ai-dash-hdr-icon">🧠</div>
+    <!-- ── Header ── -->
+    <div class="aa-hdr">
+      <div class="aa-hdr-icon">🧠</div>
       <div>
-        <div class="ai-dash-hdr-title">AI Analytics</div>
-        <div class="ai-dash-hdr-sub">Real-time data and powerful insights to help you make better decisions.</div>
+        <div class="aa-hdr-title">AI Analytics</div>
+        <div class="aa-hdr-sub">Academic performance insights — end-of-term &amp; mid-term results.</div>
       </div>
-      <div class="ai-eng-pill"><span class="ai-eng-live"></span>⚙ Analytics Engine</div>
+      <div class="aa-eng-pill"><span class="aa-pulse"></span>⚙ Analytics Engine</div>
     </div>
 
-    <!-- 6 Stat Cards -->
-    <div class="ai-stats-grid">
-      ${statCard('linear-gradient(135deg,#1e40af,#3b82f6)','👨‍🎓','Total Students',ts,'Active Enrollment','↑ +3% from last term')}
-      ${statCard('linear-gradient(135deg,#0e7490,#06b6d4)','🏠','Boarding Students',bs,'Currently in Residence','↑ +5% vs. last term')}
-      ${statCard('linear-gradient(135deg,#b45309,#f59e0b)','🚶','Day Students',ds,'Day Attendance','↑ +2% vs. last term')}
-      ${statCard('linear-gradient(135deg,#166534,#22c55e)','👩‍🏫','Total Teachers',tt,'Active Staff','')}
-      ${statCard('linear-gradient(135deg,#5b21b6,#8b5cf6)','✅','Today\'s Attendance',ar+'%',`${tp}/${tot} present`,'')}
-      ${statCard('linear-gradient(135deg,#9d174d,#ec4899)','📈','Average Score (T1)',avg+'%','Academic Performance','')}
+    <!-- ── AI Insight Cards ── -->
+    <div class="aa-ins-grid" id="aaInsGrid"></div>
+
+    <!-- ── End-of-Term Performance ── -->
+    <div class="aa-sec-hdr">
+      <span class="aa-sec-dot" style="background:#3b82f6;"></span>
+      End-of-Term Performance (Term 1)
+    </div>
+    <div class="aa-row2">
+      <!-- Subject bar chart -->
+      <div class="aa-card">
+        <div class="aa-card-ttl">
+          <div class="aa-card-ico" style="background:#eff6ff;">📚</div>
+          Subject Averages (Class + Exam)
+        </div>
+        <div style="position:relative;height:260px;"><canvas id="aaTermSubjChart"></canvas></div>
+      </div>
+      <!-- Grade distribution doughnut -->
+      <div class="aa-card">
+        <div class="aa-card-ttl">
+          <div class="aa-card-ico" style="background:#faf5ff;">🎓</div>
+          End-of-Term Grade Distribution
+        </div>
+        <div class="aa-donut-wrap">
+          <div style="position:relative;width:150px;height:150px;flex-shrink:0;">
+            <canvas id="aaTermGradeChart"></canvas>
+          </div>
+          <div id="aaTermGradeLegend"></div>
+        </div>
+      </div>
     </div>
 
-    <!-- Row 2: Weekly Attendance + Enrolment by Class -->
-    <div class="ai-row2">
-      <div class="ai-cc">
-        <div class="ai-cc-hdr">
-          <div class="ai-cc-ttl"><div class="ai-cc-ico">📊</div> Weekly Attendance</div>
-          <select class="ai-week-sel"><option>This Week</option></select>
-        </div>
-        <div style="position:relative;height:240px;"><canvas id="aiAttChart"></canvas></div>
+    <!-- Subject detail table -->
+    <div class="aa-card">
+      <div class="aa-card-ttl">
+        <div class="aa-card-ico" style="background:#f0fdf4;">📊</div>
+        Subject Performance Detail
       </div>
-      <div class="ai-cc">
-        <div class="ai-cc-hdr">
-          <div class="ai-cc-ttl"><div class="ai-cc-ico">🏫</div> Enrolment by Class</div>
-          <select class="ai-week-sel"><option>All Classes</option></select>
-        </div>
-        <div style="position:relative;height:240px;"><canvas id="aiClsChart"></canvas></div>
+      <div style="overflow-x:auto;">
+        <table class="aa-subj-table">
+          <thead><tr>
+            <th>Subject</th><th>Avg Score</th><th>Progress</th><th>A Grades</th><th>F Grades</th><th>Students</th>
+          </tr></thead>
+          <tbody id="aaTermSubjTable"></tbody>
+        </table>
       </div>
     </div>
 
-    <!-- Row 3: Grade Distribution + Boarding vs Day + Upcoming Events -->
-    <div class="ai-row3">
-      <div class="ai-cc">
-        <div class="ai-cc-hdr">
-          <div class="ai-cc-ttl"><div class="ai-cc-ico">🎓</div> Grade Distribution</div>
+    <!-- ── Mid-Term Performance ── -->
+    <div class="aa-sec-hdr">
+      <span class="aa-sec-dot" style="background:#8b5cf6;"></span>
+      Mid-Term Performance
+    </div>
+    <div class="aa-row2">
+      <!-- Mid-term subject bar chart -->
+      <div class="aa-card">
+        <div class="aa-card-ttl">
+          <div class="aa-card-ico" style="background:#f5f3ff;">📝</div>
+          Mid-Term Subject Averages
         </div>
-        <div class="ai-doughnut-wrap">
-          <div style="position:relative;width:160px;height:160px;flex-shrink:0;">
-            <canvas id="aiGradeChart"></canvas>
-            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;">
-              <div style="font-size:22px;font-weight:900;color:#0f2244;">${ts}</div>
-              <div style="font-size:10px;color:#9ca3af;font-weight:600;">Total Students</div>
-            </div>
+        <div style="position:relative;height:260px;"><canvas id="aaMtSubjChart"></canvas></div>
+      </div>
+      <!-- Mid-term grade distribution -->
+      <div class="aa-card">
+        <div class="aa-card-ttl">
+          <div class="aa-card-ico" style="background:#fef9c3;">🏷️</div>
+          Mid-Term Grade Distribution
+        </div>
+        <div class="aa-donut-wrap">
+          <div style="position:relative;width:150px;height:150px;flex-shrink:0;">
+            <canvas id="aaMtGradeChart"></canvas>
           </div>
-          <div class="ai-doughnut-legend" id="aiGradeLegend"></div>
+          <div id="aaMtGradeLegend"></div>
         </div>
       </div>
-      <div class="ai-cc">
-        <div class="ai-cc-hdr">
-          <div class="ai-cc-ttl"><div class="ai-cc-ico">👥</div> Boarding vs Day Students</div>
-        </div>
-        <div class="ai-doughnut-wrap">
-          <div style="position:relative;width:160px;height:160px;flex-shrink:0;">
-            <canvas id="aiBoardChart"></canvas>
-          </div>
-          <div class="ai-doughnut-legend">
-            <div class="ai-dleg"><span class="ai-dleg-dot" style="background:#3b82f6;"></span><div><div style="font-weight:700;font-size:13px;">Boarding</div><div style="color:#6b7280;font-size:11px;">${bs} students</div><div style="color:#6b7280;font-size:11px;">(${ts>0?((bs/ts)*100).toFixed(0):0}%)</div></div></div>
-            <div class="ai-dleg"><span class="ai-dleg-dot" style="background:#f97316;"></span><div><div style="font-weight:700;font-size:13px;">Day</div><div style="color:#6b7280;font-size:11px;">${ds} students</div><div style="color:#6b7280;font-size:11px;">(${ts>0?((ds/ts)*100).toFixed(0):0}%)</div></div></div>
-          </div>
-        </div>
-      </div>
-      <div class="ai-cc">
-        <div class="ai-cc-hdr">
-          <div class="ai-cc-ttl"><div class="ai-cc-ico">📅</div> Upcoming Events</div>
-          <button class="btn btn-primary btn-sm" onclick="showPage('calendar')">📅 View All</button>
-        </div>
-        ${(d.upcomingEvents||[]).length ? (d.upcomingEvents||[]).map(e=>`
-          <div class="ai-event-item">
-            <div class="ai-event-ico">${eventIcon(e.event_type)}</div>
-            <div><div style="font-weight:700;font-size:13px;color:#0f2244;">${e.title}</div>
-            <div style="font-size:11px;color:#6b7280;">${new Date(e.event_date).toLocaleDateString('en-GH',{day:'numeric',month:'short',year:'numeric'})}</div></div>
-          </div>`).join('')
-        : `<div style="text-align:center;padding:24px 0;color:#9ca3af;">
-            <div style="font-size:42px;margin-bottom:8px;">📅</div>
-            <div style="font-weight:700;font-size:13px;color:#374151;">No upcoming events</div>
-            <div style="font-size:12px;margin-top:4px;">Check back later for scheduled activities,<br>exams and school events.</div>
-           </div>`}
-      </div>
-    </div>`;
+    </div>
 
-    // ── AI Insights compact list below (optional) ──
-    // (insights are now embedded in the charts section via the dashboard data)
+    <!-- Top & At-risk -->
+    <div class="aa-row2">
+      <div class="aa-card">
+        <div class="aa-card-ttl">
+          <div class="aa-card-ico" style="background:#f0fdf4;">🏆</div>
+          Mid-Term Top Performers
+        </div>
+        <div id="aaMtTop"></div>
+      </div>
+      <div class="aa-card">
+        <div class="aa-card-ttl">
+          <div class="aa-card-ico" style="background:#fef2f2;">🚨</div>
+          Mid-Term At-Risk Students
+        </div>
+        <div id="aaMtAtRisk"></div>
+      </div>
+    </div>
 
-    setTimeout(()=>{
+    <!-- ── Term-on-Term comparison ── -->
+    ${termList.length > 1 ? `
+    <div class="aa-sec-hdr">
+      <span class="aa-sec-dot" style="background:#f59e0b;"></span>
+      Term-on-Term Comparison
+    </div>
+    <div class="aa-card">
+      <div class="aa-card-ttl">
+        <div class="aa-card-ico" style="background:#fffbeb;">📈</div>
+        Average Score by Term
+      </div>
+      <div style="position:relative;height:200px;"><canvas id="aaTermCompChart"></canvas></div>
+    </div>` : ''}
+    `;
+
+    // ── Populate AI insight cards ──
+    const insGrid = document.getElementById('aaInsGrid');
+    if (insGrid) {
+      insGrid.innerHTML = insList.map(ins => {
+        const col = insightColors[ins.type] || '#3b82f6';
+        return `<div class="aa-ins-card" style="--ic:${col};">
+          <div class="aa-ins-ico">${ins.icon}</div>
+          <div>
+            <div class="aa-ins-ttl">${ins.title}</div>
+            <div class="aa-ins-msg">${ins.message}</div>
+          </div>
+        </div>`;
+      }).join('') || '<div style="color:#9ca3af;font-size:13px;padding:10px;">No insights available yet.</div>';
+    }
+
+    // ── Subject table ──
+    const subjTableEl = document.getElementById('aaTermSubjTable');
+    if (subjTableEl) {
+      subjTableEl.innerHTML = subList.map(s => {
+        const avg = parseFloat(s.avg_total||0).toFixed(1);
+        const pct = Math.min(100, parseFloat(avg)/2); // out of 200 total
+        const col = parseFloat(avg) >= 140 ? '#22c55e' : parseFloat(avg) >= 100 ? '#f59e0b' : '#ef4444';
+        const gradeA = parseInt(s.grade_a||0), gradeF = parseInt(s.grade_f||0), total = parseInt(s.total_students||0);
+        return `<tr>
+          <td style="font-weight:700;">${s.subject||'—'}</td>
+          <td><span style="font-weight:800;color:${col};">${avg}/200</span></td>
+          <td style="width:120px;">
+            <div class="aa-bar-bg"><div class="aa-bar-fill" style="width:${pct}%;background:${col};"></div></div>
+          </td>
+          <td><span class="aa-grade-badge" style="background:#d1fae5;color:#065f46;">${gradeA}</span></td>
+          <td><span class="aa-grade-badge" style="background:#fee2e2;color:#991b1b;">${gradeF}</span></td>
+          <td style="color:#6b7280;">${total}</td>
+        </tr>`;
+      }).join('') || '<tr><td colspan="6" style="text-align:center;color:#9ca3af;padding:20px;">No end-of-term grades recorded yet.</td></tr>';
+    }
+
+    // ── Mid-term top & at-risk ──
+    const topColors = ['#f59e0b','#9ca3af','#cd7c2b','#3b82f6','#22c55e'];
+    const atRiskColors = ['#ef4444','#f97316','#f59e0b','#84cc16','#22c55e'];
+    const mtTopEl = document.getElementById('aaMtTop');
+    if (mtTopEl) {
+      mtTopEl.innerHTML = mtTopList.length ? mtTopList.map((s,i)=>`
+        <div class="aa-stu-row">
+          <div class="aa-stu-av" style="background:${topColors[i]||'#3b82f6'};">#${i+1}</div>
+          <div><div class="aa-stu-name">${s.full_name}</div><div class="aa-stu-cls">${s.class}</div></div>
+          <div class="aa-stu-score" style="color:${topColors[i]||'#3b82f6'};">${parseFloat(s.avg_score||0).toFixed(1)}%</div>
+        </div>`).join('')
+      : '<div style="text-align:center;color:#9ca3af;padding:24px;font-size:13px;">No mid-term data recorded.</div>';
+    }
+    const atRiskEl = document.getElementById('aaMtAtRisk');
+    if (atRiskEl) {
+      atRiskEl.innerHTML = mtAtRiskList.length ? mtAtRiskList.map((s,i)=>`
+        <div class="aa-stu-row">
+          <div class="aa-stu-av" style="background:${atRiskColors[i]||'#ef4444'};">⚠</div>
+          <div><div class="aa-stu-name">${s.full_name}</div><div class="aa-stu-cls">${s.class}</div></div>
+          <div class="aa-stu-score" style="color:#ef4444;">${parseFloat(s.avg_score||0).toFixed(1)}%</div>
+        </div>`).join('')
+      : '<div style="text-align:center;color:#22c55e;padding:24px;font-size:13px;">✓ No students at risk — great performance!</div>';
+    }
+
+    setTimeout(() => {
       try {
-        destroyChart('aiAtt'); destroyChart('aiCls'); destroyChart('aiGrade'); destroyChart('aiBoard');
+        destroyChart('aaTermSubj'); destroyChart('aaTermGrade');
+        destroyChart('aaMtSubj'); destroyChart('aaMtGrade'); destroyChart('aaTermComp');
 
-        // 1. Weekly Attendance — area line
-        const attLabels = (d.weeklyAttendance||[]).map(w=>new Date(w.date).toLocaleDateString('en-GH',{weekday:'short'}));
-        const attPct = (d.weeklyAttendance||[]).map(w=>{const t=parseInt(w.total||0),p=parseInt(w.present||0);return t?((p/t)*100).toFixed(0):0;});
-        const attAbs = (d.weeklyAttendance||[]).map(w=>{const t=parseInt(w.total||0),p=parseInt(w.present||0);return t?(((t-p)/t)*100).toFixed(0):0;});
-        const attCtx = document.getElementById('aiAttChart');
-        if(attCtx){
-          const grd = attCtx.getContext('2d').createLinearGradient(0,0,0,240);
-          grd.addColorStop(0,'rgba(59,130,246,.35)'); grd.addColorStop(1,'rgba(59,130,246,.02)');
-          charts.aiAtt = new Chart(attCtx,{type:'line',data:{labels:attLabels,datasets:[
-            {label:'Present',data:attPct,fill:true,backgroundColor:grd,borderColor:'#3b82f6',borderWidth:3,tension:.4,
-              pointRadius:5,pointBackgroundColor:'#1e40af',pointBorderColor:'#fff',pointBorderWidth:2},
-            {label:'Absent',data:attAbs,fill:false,borderColor:'#d1d5db',borderWidth:2,tension:.4,
-              borderDash:[5,4],pointRadius:4,pointBackgroundColor:'#9ca3af',pointBorderColor:'#fff',pointBorderWidth:1}
-          ]},options:{responsive:true,maintainAspectRatio:false,
-            plugins:{legend:{display:true,position:'top',labels:{usePointStyle:true,font:{size:11}}},
-              tooltip:{callbacks:{label:v=>v.dataset.label+': '+v.raw+'%'}}},
-            scales:{y:{min:0,max:100,grid:{color:'rgba(0,0,0,.04)'},ticks:{callback:v=>v+'%',font:{size:10}}},
-              x:{grid:{display:false},ticks:{font:{size:11}}}}}});
+        const chartOpts = (title) => ({
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: v => `${v.label}: ${parseFloat(v.raw).toFixed(1)}` } } },
+          scales: {
+            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,.04)' }, ticks: { font: { size: 10 } } },
+            x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 30 } }
+          }
+        });
+
+        // 1. End-of-term subject bar chart
+        const termSubjCtx = document.getElementById('aaTermSubjChart');
+        if (termSubjCtx && subList.length) {
+          const subjColors = subList.map((_,i) => `hsl(${(i*37)%360},60%,55%)`);
+          charts.aaTermSubj = new Chart(termSubjCtx, {
+            type: 'bar',
+            data: {
+              labels: subList.map(s => s.subject),
+              datasets: [{ label: 'Avg Score', data: subList.map(s => parseFloat(s.avg_total||0).toFixed(1)),
+                backgroundColor: subjColors, borderRadius: 8, borderSkipped: false }]
+            },
+            options: { ...chartOpts(), plugins: { ...chartOpts().plugins, tooltip: { callbacks: { label: v => `Avg: ${v.raw}/200` } } } }
+          });
         }
 
-        // 2. Enrolment by Class — bar
-        const clsCtx = document.getElementById('aiClsChart');
-        if(clsCtx){
-          charts.aiCls = new Chart(clsCtx,{type:'bar',
-            data:{labels:(d.byClass||[]).map(c=>c.class),
-              datasets:[{label:'Students',data:(d.byClass||[]).map(c=>parseInt(c.count||0)),
-                backgroundColor:clsColors,borderRadius:10,borderSkipped:false,maxBarThickness:40}]},
-            options:{responsive:true,maintainAspectRatio:false,
-              plugins:{legend:{display:false},tooltip:{callbacks:{label:v=>v.raw+' students'}},
-                datalabels:{display:true,anchor:'end',align:'top',font:{size:10,weight:'700'},color:'#374151'}},
-              scales:{x:{grid:{display:false},ticks:{font:{size:10}}},
-                y:{beginAtZero:true,grid:{color:'rgba(0,0,0,.04)'},ticks:{stepSize:5,font:{size:10}}}}}});
+        // 2. End-of-term grade distribution doughnut
+        const termGradeCtx = document.getElementById('aaTermGradeChart');
+        const gradeKeys = ['A','B','C','D','F'];
+        const gradeColors = { A:'#22c55e', B:'#3b82f6', C:'#f59e0b', D:'#f97316', F:'#ef4444' };
+        const termGradeVals = gradeKeys.map(g => gradeMap[g]||0);
+        if (termGradeCtx && termGradeVals.some(v=>v>0)) {
+          charts.aaTermGrade = new Chart(termGradeCtx, {
+            type: 'doughnut',
+            data: { labels: gradeKeys, datasets: [{ data: termGradeVals,
+              backgroundColor: gradeKeys.map(g=>gradeColors[g]), borderWidth: 3, borderColor: '#fff', hoverOffset: 8 }] },
+            options: { responsive: true, maintainAspectRatio: false, cutout: '65%',
+              plugins: { legend: { display: false }, tooltip: { callbacks: { label: v => `Grade ${v.label}: ${v.raw}` } } } }
+          });
+          const legEl = document.getElementById('aaTermGradeLegend');
+          if (legEl) legEl.innerHTML = gradeKeys.map((g,i)=>`
+            <div class="aa-dleg"><span class="aa-dleg-dot" style="background:${gradeColors[g]};"></span>
+            <span style="font-weight:700;">Grade ${g}</span>&nbsp;<span style="color:#9ca3af;">${termGradeVals[i]}</span></div>`).join('');
+        } else if (termGradeCtx) {
+          termGradeCtx.parentElement.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:40px 0;font-size:13px;">No grade data yet.</div>';
         }
 
-        // 3. Grade Distribution — doughnut
-        const gradeCtx = document.getElementById('aiGradeChart');
-        const gDat = d.gradeDistribution||[];
-        if(gradeCtx && gDat.length){
-          const gCols = ['#3b82f6','#22c55e','#8b5cf6','#f59e0b','#ef4444','#06b6d4','#f97316'];
-          charts.aiGrade = new Chart(gradeCtx,{type:'doughnut',
-            data:{labels:gDat.map(g=>'Grade '+g.grade),
-              datasets:[{data:gDat.map(g=>parseInt(g.count||0)),backgroundColor:gCols,borderColor:'#fff',borderWidth:3,hoverOffset:14}]},
-            options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
-              plugins:{legend:{display:false},tooltip:{callbacks:{label:v=>`${v.label}: ${v.raw}`}}}}});
-          // legend
-          const leg = document.getElementById('aiGradeLegend');
-          if(leg) leg.innerHTML = gDat.map((g,i)=>`
-            <div class="ai-dleg">
-              <span class="ai-dleg-dot" style="background:${gCols[i%gCols.length]};"></span>
-              <span style="font-size:12px;"><strong>${d.byClass?.find(c=>c.class===g.grade)?d.byClass.find(c=>c.class===g.grade).count:g.grade}</strong>
-              <span style="color:#6b7280;"> Grade ${g.grade} (${g.count})</span></span>
-            </div>`).join('');
+        // 3. Mid-term subject bar chart
+        const mtSubjCtx = document.getElementById('aaMtSubjChart');
+        if (mtSubjCtx && mtSubList.length) {
+          const mtColors = mtSubList.map((_,i) => `hsl(${(i*47+240)%360},60%,55%)`);
+          charts.aaMtSubj = new Chart(mtSubjCtx, {
+            type: 'bar',
+            data: {
+              labels: mtSubList.map(s => s.subject),
+              datasets: [{ label: 'Avg Score', data: mtSubList.map(s => parseFloat(s.avg_score||0).toFixed(1)),
+                backgroundColor: mtColors, borderRadius: 8, borderSkipped: false }]
+            },
+            options: { ...chartOpts(), plugins: { ...chartOpts().plugins, tooltip: { callbacks: { label: v => `Avg: ${v.raw}%` } } } }
+          });
+        } else if (mtSubjCtx) {
+          mtSubjCtx.parentElement.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:60px 0;font-size:13px;">No mid-term grades recorded yet.</div>';
         }
 
-        // 4. Boarding vs Day — doughnut
-        const bCtx = document.getElementById('aiBoardChart');
-        if(bCtx){
-          charts.aiBoard = new Chart(bCtx,{type:'doughnut',
-            data:{labels:['Boarding','Day'],
-              datasets:[{data:[bs,ds],backgroundColor:['#3b82f6','#f97316'],borderColor:'#fff',borderWidth:4,hoverOffset:14}]},
-            options:{responsive:true,maintainAspectRatio:false,cutout:'55%',
-              plugins:{legend:{display:false},
-                tooltip:{callbacks:{label:v=>`${v.label}: ${v.raw} (${ts>0?((v.raw/ts)*100).toFixed(1):0}%)`}}}}});
+        // 4. Mid-term grade distribution
+        const mtGradeCtx = document.getElementById('aaMtGradeChart');
+        if (mtGradeCtx && mtGradeDist.length) {
+          const mtGradeVals = gradeKeys.map(g => { const r = mtGradeDist.find(x=>x.grade===g); return parseInt(r?.count||0); });
+          if (mtGradeVals.some(v=>v>0)) {
+            charts.aaMtGrade = new Chart(mtGradeCtx, {
+              type: 'doughnut',
+              data: { labels: gradeKeys, datasets: [{ data: mtGradeVals,
+                backgroundColor: gradeKeys.map(g=>gradeColors[g]), borderWidth: 3, borderColor: '#fff', hoverOffset: 8 }] },
+              options: { responsive: true, maintainAspectRatio: false, cutout: '65%',
+                plugins: { legend: { display: false }, tooltip: { callbacks: { label: v => `Grade ${v.label}: ${v.raw}` } } } }
+            });
+            const mtLegEl = document.getElementById('aaMtGradeLegend');
+            if (mtLegEl) mtLegEl.innerHTML = gradeKeys.map((g,i)=>`
+              <div class="aa-dleg"><span class="aa-dleg-dot" style="background:${gradeColors[g]};"></span>
+              <span style="font-weight:700;">Grade ${g}</span>&nbsp;<span style="color:#9ca3af;">${mtGradeVals[i]}</span></div>`).join('');
+          } else {
+            mtGradeCtx.parentElement.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:40px 0;font-size:13px;">No grade data yet.</div>';
+          }
         }
-      } catch(chartErr){ console.error('AI Analytics chart error:', chartErr); }
+
+        // 5. Term-on-term comparison bar
+        const termCompCtx = document.getElementById('aaTermCompChart');
+        if (termCompCtx && termList.length > 1) {
+          charts.aaTermComp = new Chart(termCompCtx, {
+            type: 'bar',
+            data: {
+              labels: termList.map(t => t.term),
+              datasets: [{ label: 'Avg Score', data: termList.map(t => parseFloat(t.avg||0).toFixed(1)),
+                backgroundColor: termBarColors.slice(0, termList.length), borderRadius: 8, borderSkipped: false }]
+            },
+            options: { ...chartOpts(), plugins: { ...chartOpts().plugins, tooltip: { callbacks: { label: v => `Avg: ${v.raw}/200` } } } }
+          });
+        }
+
+      } catch(chartErr) { console.error('AI Analytics chart error:', chartErr); }
     }, 200);
-  } catch(e){ toast(e.message,'error'); }
+
+  } catch(e) { toast(e.message,'error'); }
 }
+
 
 // ════════════════════════════════════════════
 // STUDENTS (Admin)
