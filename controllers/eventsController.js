@@ -18,7 +18,7 @@ exports.create = async (req, res) => {
   try {
     const { title, description, event_date, end_date, event_type, class: cls } = req.body;
     const result = await run("INSERT INTO events (title, description, event_date, end_date, event_type, class, created_by) VALUES (?,?,?,?,?,?,?)",
-      [title, description, event_date, end_date, event_type || 'general', cls || 'all', req.user?.id]);
+      [title || '', description || '', event_date || '', end_date || null, event_type || 'general', cls || 'all', req.user?.id || null]);
     res.status(201).json({ id: result.lastID, message: 'Event created' });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -26,10 +26,14 @@ exports.create = async (req, res) => {
 };
 
 exports.update = async (req, res) => {
-  const { title, description, event_date, end_date, event_type, class: cls } = req.body;
-  await run("UPDATE events SET title=?, description=?, event_date=?, end_date=?, event_type=?, class=? WHERE id=?",
-    [title, description, event_date, end_date, event_type, cls, req.params.id]);
-  res.json({ message: 'Event updated' });
+  try {
+    const { title, description, event_date, end_date, event_type, class: cls } = req.body;
+    await run("UPDATE events SET title=?, description=?, event_date=?, end_date=?, event_type=?, class=? WHERE id=?",
+      [title || '', description || '', event_date || '', end_date || null, event_type || 'general', cls || 'all', req.params.id]);
+    res.json({ message: 'Event updated' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 };
 
 exports.delete = async (req, res) => {
