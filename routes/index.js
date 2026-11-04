@@ -130,6 +130,7 @@ router.get('/midterm/class/:class', authMiddleware, midterm.getByClass);
 router.get('/midterm/student/:id', authMiddleware, midterm.getStudentReport);
 router.get('/midterm/top-students', authMiddleware, midterm.topStudents);
 router.post('/midterm/approve', authMiddleware, adminOnly, midterm.approve);
+router.delete('/midterm/student/:student_id', authMiddleware, adminOnly, midterm.deleteStudent);
 
 // ── CONDUCT & REMARKS ──
 router.get('/conduct/student/:student_id', authMiddleware, conduct.get);

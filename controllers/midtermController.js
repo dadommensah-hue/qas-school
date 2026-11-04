@@ -87,8 +87,22 @@ exports.topStudents = async (req, res) => {
     FROM midterm_grades g JOIN students s ON g.student_id = s.id WHERE g.term=?`;
   const params = [term || 'Term 1'];
   if (cls) { sql += " AND g.class=?"; params.push(cls); }
-  sql += " GROUP BY g.student_id ORDER BY avg_score DESC LIMIT 10";
+  sql += " GROUP BY g.student_id ORDER BY avg_score DESC";
   res.json(await query(sql, params));
+};
+
+exports.deleteStudent = async (req, res) => {
+  try {
+    const { student_id } = req.params;
+    const { term, class: cls, academic_year } = req.query;
+    let sql = "DELETE FROM midterm_grades WHERE student_id=?";
+    const params = [student_id];
+    if (term) { sql += " AND term=?"; params.push(term); }
+    if (cls) { sql += " AND class=?"; params.push(cls); }
+    if (academic_year) { sql += " AND academic_year=?"; params.push(academic_year); }
+    await run(sql, params);
+    res.json({ message: 'Student mid-term grades deleted' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 };
 
 exports.approve = async (req, res) => {

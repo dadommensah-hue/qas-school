@@ -1,4 +1,4 @@
-<!-- QAS v65 Modern 2026 UI -->
+<!-- QAS v70 Midterm: all rankings, delete student, duplicate fix -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3154,14 +3154,17 @@ async function loadMidtermGrades() {
     let url = '/midterm/class/'+encodeURIComponent(cls)+'?term='+encodeURIComponent(term);
     if (subject) url += '&subject='+encodeURIComponent(subject);
     const [data, top] = await Promise.all([get(url), get('/midterm/top-students?term='+encodeURIComponent(term)+'&class='+encodeURIComponent(cls))]);
-    document.getElementById('mtTopStudents').innerHTML = '<table><thead><tr><th>Rank</th><th>Student</th><th>Avg</th><th>Grade</th></tr></thead><tbody>'
-    + (top||[]).map(function(s,i){ var g=s.avg_score>=80?'A':s.avg_score>=70?'B':s.avg_score>=60?'C':s.avg_score>=50?'D':'F'; return '<tr><td>'+(['🥇','🥈','🥉'][i]||'#'+(i+1))+'</td><td><strong>'+s.full_name+'</strong></td><td>'+parseFloat(s.avg_score||0).toFixed(1)+'%</td><td class="grade-'+g+'">'+g+'</td></tr>'; }).join('')
-    + '</tbody></table>';
+    document.getElementById('mtTopStudents').innerHTML = (top||[]).length ? '<table><thead><tr><th>Rank</th><th>Student</th><th>Avg</th><th>Grade</th></tr></thead><tbody>'
+    + (top||[]).map(function(s,i){ var g=s.avg_score>=80?'A':s.avg_score>=70?'B':s.avg_score>=60?'C':s.avg_score>=50?'D':'F'; var medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'<b style="color:#555">#'+(i+1)+'</b>'; return '<tr><td>'+medal+'</td><td><strong>'+s.full_name+'</strong></td><td>'+parseFloat(s.avg_score||0).toFixed(1)+'%</td><td class="grade-'+g+'">'+g+'</td></tr>'; }).join('')
+    + '</tbody></table>' : '<div class="empty-state" style="padding:12px"><i class="fas fa-users"></i> No rankings yet</div>';
     // Build unique students list for PDF download buttons
     const mtStudents = {};
     (data||[]).forEach(function(g){ if(!mtStudents[g.student_id]) mtStudents[g.student_id]={id:g.student_id,name:g.full_name}; });
     const mtStudentBtns = Object.values(mtStudents).map(function(s){
-      return '<button class="btn btn-outline btn-sm" style="margin:2px;" onclick="adminDownloadMidtermPDF('+s.id+',\''+term+'\')"><i class="fas fa-file-pdf"></i> '+s.name+'</button>';
+      return '<span style="display:inline-flex;align-items:center;gap:2px;margin:3px;">'
+        +'<button class="btn btn-outline btn-sm" style="border-radius:6px 0 0 6px;margin:0;" onclick="adminDownloadMidtermPDF('+s.id+',\''+term+'\')"><i class="fas fa-file-pdf"></i> '+s.name+'</button>'
+        +'<button class="btn btn-sm" style="background:#ef4444;color:#fff;border:1px solid #ef4444;border-radius:0 6px 6px 0;margin:0;padding:4px 8px;" title="Delete mid-term for '+s.name+'" onclick="deleteMidtermStudent('+s.id+',\''+s.name.replace(/'/g,"\\'")+'\')" ><i class="fas fa-trash"></i></button>'
+        +'</span>';
     }).join('');
     document.getElementById('mtGradesTable').innerHTML = data?.length ? '<table><thead><tr><th>Student</th><th>Subject</th><th>Exam Score (100)</th><th>Grade</th></tr></thead><tbody>'
     + data.map(function(g){ return '<tr><td><strong>'+g.full_name+'</strong></td><td>'+g.subject+'</td><td><strong>'+parseFloat(g.exam_score||0).toFixed(1)+'</strong></td><td class="grade-'+g.grade+'">'+g.grade+'</td></tr>'; }).join('')
@@ -3212,6 +3215,17 @@ async function saveMidtermGrades(cls, studentIds) {
   }).filter(function(g){ return g.exam_score>0; });
   try { await post('/midterm/grades',{grades:grades_data}); closeModal(); toast('Mid-term grades saved!','success'); loadMidtermGrades(); }
   catch(e){ toast(e.message,'error'); }
+}
+
+async function deleteMidtermStudent(studentId, studentName) {
+  if (!confirm('Delete ALL mid-term grades for ' + studentName + ' in this class and term?\nThis cannot be undone.')) return;
+  var cls = document.getElementById('mt_class')?.value||'Basic 1';
+  var term = document.getElementById('mt_term')?.value||'Term 1';
+  try {
+    await del('/midterm/student/'+studentId+'?term='+encodeURIComponent(term)+'&class='+encodeURIComponent(cls));
+    toast('Mid-term grades deleted for '+studentName,'success');
+    loadMidtermGrades();
+  } catch(e){ toast(e.message,'error'); }
 }
 
 async function approveMidtermReport() {
