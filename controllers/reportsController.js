@@ -55,11 +55,11 @@ function drawWatermark(doc) {
   try {
     const pageW = doc.page.width;
     const pageH = doc.page.height;
-    const wmSize = 420;
+    const wmSize = 500;
     const wmX = (pageW - wmSize) / 2;
     const wmY = (pageH - wmSize) / 2;
     doc.save();
-    doc.opacity(0.07);
+    doc.opacity(0.04);
     doc.image(LOGO_PATH, wmX, wmY, { width: wmSize, height: wmSize });
     doc.restore();
   } catch(e) {}
