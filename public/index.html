@@ -1,4 +1,4 @@
-<!-- QAS v72 Logo watermark on PDFs, Basic 9 mock report card -->
+<!-- QAS v73 Larger watermark, no Basic 9 PDF download -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3828,10 +3828,7 @@ async function loadStudentMockResults() {
     <div class="card" style="margin-bottom:16px;">
       <div class="card-header" style="background:#1e3a5f;color:#fff;border-radius:10px 10px 0 0;">
         <h3 style="color:#fff;">🏆 MOCK ${selMock} EXAMINATION RESULTS</h3>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <span style="background:rgba(255,255,255,.2);color:#fff;padding:4px 12px;border-radius:20px;font-size:13px;">Aggregate: <strong>${d.aggregate??'—'}</strong></span>
-          <button class="btn btn-sm" style="background:#ef4444;color:#fff;border:none;" onclick="downloadMyMockReport(${selMock})"><i class="fas fa-file-pdf"></i> Download Report Card</button>
-        </div>
+        <span style="background:rgba(255,255,255,.2);color:#fff;padding:4px 12px;border-radius:20px;font-size:13px;">Aggregate: <strong>${d.aggregate??'—'}</strong></span>
       </div>
       <div class="card-body">
         <div style="background:#f0f9ff;border-radius:8px;padding:12px;margin-bottom:14px;font-size:14px;display:flex;gap:24px;flex-wrap:wrap;">

@@ -55,7 +55,7 @@ function drawWatermark(doc) {
   try {
     const pageW = doc.page.width;
     const pageH = doc.page.height;
-    const wmSize = 280;
+    const wmSize = 420;
     const wmX = (pageW - wmSize) / 2;
     const wmY = (pageH - wmSize) / 2;
     doc.save();
