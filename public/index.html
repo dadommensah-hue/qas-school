@@ -1,4 +1,4 @@
-<!-- QAS v71 Midterm: removed Grade Records panel -->
+<!-- QAS v72 Logo watermark on PDFs, Basic 9 mock report card -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1058,7 +1058,7 @@ function buildSidebar() {
     <div class="nav-section">
       <div class="nav-section-title">My Portal</div>
       <div class="nav-item" onclick="showPage('studentDashboard')"><i class="fas fa-home"></i> My Dashboard</div>
-      ${USER&&USER.class!=='Basic 9'?`<div class="nav-item" onclick="showPage('studentReportCard')"><i class="fas fa-file-alt"></i> My Report Card</div>`:''}
+      <div class="nav-item" onclick="showPage('studentReportCard')"><i class="fas fa-file-alt"></i> ${USER&&USER.class==='Basic 9'?'Mock Results':'My Report Card'}</div>
       \${USER&&USER.class!=='Basic 9'?'<div class="nav-item" onclick="showPage(\'studentMidtermResults\')"><i class="fas fa-clipboard-list"></i> Mid-Term Results</div>':''}
       <div class="nav-item" onclick="showPage('studentAttendance')"><i class="fas fa-calendar-check"></i> My Attendance</div>
       <div class="nav-item" onclick="showPage('studentLoginDetails')"><i class="fas fa-key"></i> Login Details</div>
@@ -3437,11 +3437,11 @@ async function studentDashboard() {
     .sd3d-sub{font-size:11px;opacity:.7;margin-top:2px;}
   </style>
   <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:18px;">
-    <div class="sd3d" style="background:linear-gradient(135deg,#1e40af,#3b82f6);${USER.class!=='Basic 9'?'cursor:pointer;':''}" ${USER.class!=='Basic 9'?'onclick="showPage(\'studentReportCard\')"':''}>
+    <div class="sd3d" style="background:linear-gradient(135deg,#1e40af,#3b82f6);cursor:pointer;" onclick="showPage('studentReportCard')">
       <div style="position:absolute;right:14px;top:14px;font-size:38px;opacity:.18;">📄</div>
       <div class="sd3d-val" id="sd_avg">—</div>
       <div class="sd3d-label">${USER.class==='Basic 9'?'BECE Aggregate':'My Average Score'}</div>
-      <div class="sd3d-sub">${USER.class==='Basic 9'?'Mock examination':'Click to view report'}</div>
+      <div class="sd3d-sub">${USER.class==='Basic 9'?'Click to view mock results':'Click to view report'}</div>
     </div>
     <div class="sd3d" style="background:linear-gradient(135deg,#065f46,#10b981);cursor:pointer;" onclick="showPage('studentAttendance')">
       <div style="position:absolute;right:14px;top:14px;font-size:38px;opacity:.18;">✅</div>
@@ -3475,7 +3475,7 @@ async function studentDashboard() {
   </div>`:''}
   <div class="card" id="sd_subjects_card">
     <div class="card-header"><h3 id="sd_term_title">📚 My Subjects</h3>
-      ${USER&&USER.class!=='Basic 9'?'<button class="btn btn-primary btn-sm" onclick="showPage(\'studentReportCard\')"><i class="fas fa-file-alt"></i> My Report Card</button>':''}
+      <button class="btn btn-primary btn-sm" onclick="showPage('studentReportCard')"><i class="fas fa-file-alt"></i> ${USER&&USER.class==='Basic 9'?'Mock Results':'My Report Card'}</button>
     </div>
     <div class="card-body table-wrap" id="sd_subjects"><div class="loading-overlay"><div class="spinner"></div></div></div>
   </div>`;
@@ -3828,7 +3828,10 @@ async function loadStudentMockResults() {
     <div class="card" style="margin-bottom:16px;">
       <div class="card-header" style="background:#1e3a5f;color:#fff;border-radius:10px 10px 0 0;">
         <h3 style="color:#fff;">🏆 MOCK ${selMock} EXAMINATION RESULTS</h3>
-        <span style="background:rgba(255,255,255,.2);color:#fff;padding:4px 12px;border-radius:20px;font-size:13px;">Aggregate: <strong>${d.aggregate??'—'}</strong></span>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span style="background:rgba(255,255,255,.2);color:#fff;padding:4px 12px;border-radius:20px;font-size:13px;">Aggregate: <strong>${d.aggregate??'—'}</strong></span>
+          <button class="btn btn-sm" style="background:#ef4444;color:#fff;border:none;" onclick="downloadMyMockReport(${selMock})"><i class="fas fa-file-pdf"></i> Download Report Card</button>
+        </div>
       </div>
       <div class="card-body">
         <div style="background:#f0f9ff;border-radius:8px;padding:12px;margin-bottom:14px;font-size:14px;display:flex;gap:24px;flex-wrap:wrap;">
@@ -3989,6 +3992,15 @@ async function downloadMyReport() {
     const blob = await api(`/reports/student/${USER.id}?term=${encodeURIComponent(term)}`);
     const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`my_report_${term.replace(' ','_')}.pdf`; a.click();
     toast('Report downloaded!','success');
+  } catch(e){ toast(e.message,'error'); }
+}
+
+async function downloadMyMockReport(mockNum) {
+  try {
+    const mn = mockNum || parseInt(document.getElementById('mockNumSel')?.value||1);
+    const blob = await api(`/reports/mock/student/${USER.id}?mock_number=${mn}`);
+    const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`mock${mn}_report_card.pdf`; a.click();
+    toast('Mock Report Card downloaded!','success');
   } catch(e){ toast(e.message,'error'); }
 }
 

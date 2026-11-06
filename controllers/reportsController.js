@@ -50,6 +50,21 @@ function drawReportHeader(doc, termLabel) {
   doc.y = curY;
 }
 
+function drawWatermark(doc) {
+  if (!fs.existsSync(LOGO_PATH)) return;
+  try {
+    const pageW = doc.page.width;
+    const pageH = doc.page.height;
+    const wmSize = 280;
+    const wmX = (pageW - wmSize) / 2;
+    const wmY = (pageH - wmSize) / 2;
+    doc.save();
+    doc.opacity(0.07);
+    doc.image(LOGO_PATH, wmX, wmY, { width: wmSize, height: wmSize });
+    doc.restore();
+  } catch(e) {}
+}
+
 function gradeColor(grade) {
   const colors = { A:'#16a34a', B:'#2563eb', C:'#d97706', D:'#ea580c', F:'#dc2626' };
   return colors[grade] || '#374151';
@@ -77,6 +92,7 @@ exports.studentReport = async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="report_${student.student_id}_${termLabel.replace(' ','_')}.pdf"`);
     doc.pipe(res);
+    drawWatermark(doc);
 
     const pageW = doc.page.width;
     const M = 36; // margin
@@ -516,6 +532,7 @@ exports.mockStudentReport = async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="mock${mock_number}_${student.student_id}.pdf"`);
     doc.pipe(res);
+    drawWatermark(doc);
 
     const pageW = doc.page.width;
     const margin = 40;
@@ -659,6 +676,7 @@ exports.midtermStudentReport = async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="midterm_${student.student_id}_${termLabel.replace(' ','_')}.pdf"`);
     doc.pipe(res);
+    drawWatermark(doc);
 
     const pageW = doc.page.width;
     const margin = 40;
